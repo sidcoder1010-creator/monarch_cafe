@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monarch Café</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            const s = localStorage.getItem('theme') ||
+                (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', s);
+        })();
+    </script>
+    <style>
+        /* ── Tokens (identical to portfolio tracker) ── */
+        :root {
+            --bg:             #fdfdfd;
+            --card-bg:        #ffffff;
+            --primary:        #111827;
+            --secondary:      #f3f4f6;
+            --text-main:      #111827;
+            --text-muted:     #6b7280;
+            --border:         #e5e7eb;
+            --success:        #10b981;
+            --danger:         #ef4444;
+        }
+
+        html[data-theme="dark"] {
+            --bg:         #1c1c1c;
+            --card-bg:    #272727;
+            --secondary:  #363636;
+            --text-main:  #f9fafb;
+            --text-muted: #9ca3af;
+            --border:     #363636;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container { width: 100%; max-width: 800px; }
+
+        /* ── Header (identical to portfolio tracker) ── */
+        header {
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-top: 4px; }
+
+        .btn-theme {
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--secondary);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-family: inherit;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .btn-theme:hover { background: var(--border); color: var(--text-main); }
+
+        /* ── Section card (identical to portfolio tracker .section) ── */
+        .section {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        /* ── Day tabs ── */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+
+        .tab {
+            flex-shrink: 0;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .tab:hover { background: var(--secondary); color: var(--text-main); }
+        .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        html[data-theme="dark"] .tab.active { background: var(--text-main); color: var(--bg); border-color: var(--text-main); }
+
+        .holiday-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            opacity: 0.5;
+        }
+
+        /* ── Hours pill ── */
+        .hours-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 14px;
+        }
+        .hours-pill.open   { background: rgba(16,185,129,0.1);  color: var(--success); }
+        .hours-pill.closed { background: rgba(239,68,68,0.1);   color: var(--danger);  }
+        .hours-pill.soon   { background: var(--secondary);      color: var(--text-muted); }
+
+        /* ── Section group label ── */
+        .group-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+        }
+        .group-label:not(:first-child) { margin-top: 24px; }
+
+        /* ── Menu item row (mirrors portfolio tracker table row feel) ── */
+        .item-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .item-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .item-row:first-child { padding-top: 0; }
+
+        .item-left { flex: 1; min-width: 0; }
+
+        .item-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+        .item-emoji  { font-size: 1rem; flex-shrink: 0; }
+        .item-name   { font-size: 0.9rem; font-weight: 600; }
+
+        .badge {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            flex-shrink: 0;
+            text-transform: lowercase;
+            background: var(--secondary);
+            color: var(--text-muted);
+        }
+        /* Keep subtle color only for breakfast / soup */
+        .cat-breakfast { background: #fef3c7; color: #92400e; }
+        .cat-soup      { background: #fff7ed; color: #9a3412; }
+        html[data-theme="dark"] .cat-breakfast { background: #451a03; color: #fde68a; }
+        html[data-theme="dark"] .cat-soup      { background: #431407; color: #fed7aa; }
+
+        .item-desc {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .item-price {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-main);
+            flex-shrink: 0;
+            padding-top: 2px;
+        }
+
+        /* ── Skeleton ── */
+        .skeleton { animation: pulse 1.4s ease-in-out infinite; }
+        @keyframes pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+        .sk { height: 13px; border-radius: 6px; background: var(--secondary); margin-bottom: 10px; }
+
+        /* ── Error ── */
+        .error-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .error-box p { color: var(--danger); font-size: 0.9rem; margin-bottom: 12px; }
+        .btn-retry {
+            padding: 8px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .btn-retry:hover { background: var(--secondary); }
+
+        /* ── Holiday ── */
+        .holiday-card {
+            text-align: center;
+            padding: 32px 0 8px;
+        }
+        .holiday-card .h-emoji { font-size: 2.8rem; margin-bottom: 12px; }
+        .holiday-card h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 6px; }
+        .holiday-card p  { color: var(--text-muted); font-size: 0.875rem; }
+
+        /* ── Collapsible sections (Always Available / Snacks / Hours) ── */
+        details {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        summary {
+            padding: 16px 24px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+        }
+        summary::-webkit-details-marker { display: none; }
+        summary::after { content: '›'; font-size: 1.1rem; color: var(--text-muted); transition: transform 0.2s; }
+        details[open] summary::after { transform: rotate(90deg); }
+
+        .coll-inner {
+            padding: 0 24px 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .mini-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+        }
+        .mini-row:last-child { border-bottom: none; }
+        .mini-name  { font-weight: 500; }
+        .mini-desc  { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+        .mini-price { font-weight: 600; color: var(--text-main); flex-shrink: 0; }
+
+        .hours-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 12px; }
+        .h-row      { font-size: 0.875rem; font-weight: 500; }
+        .h-row span { color: var(--text-muted); display: block; font-size: 0.8rem; font-weight: 400; }
+
+        .outdoor-daily .item-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+        .section-divider {
+            border-top: 1px solid var(--border);
+            margin: 12px 0;
+        }
+
+        /* ── Mobile ── */
+        @media (max-width: 480px) {
+            body    { padding: 16px 12px; }
+            .section { padding: 16px; }
+            summary  { padding: 14px 16px; }
+            .coll-inner { padding: 0 16px 12px; }
+            .hours-grid { grid-template-columns: 1fr; }
+            .item-row   { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <header>
+        <div>
+            <h1>Monarch Café</h1>
+            <p class="subtitle" id="week-label">Archbishop Mitty High School</p>
+        </div>
+        <button class="btn-theme" id="theme-btn" onclick="toggleTheme()">Dark</button>
+    </header>
+
+    <!-- Tabs + hours -->
+    <div class="section">
+        <div class="tabs" id="tabs"></div>
+        <div id="hours-pill" class="hours-pill"></div>
+    </div>
+
+    <!-- Menu output -->
+    <div id="content">
+        <div class="section skeleton" id="skeleton">
+            <div class="sk" style="width:35%"></div>
+            <div class="sk" style="width:80%"></div>
+            <div class="sk" style="width:65%"></div>
+            <div class="sk" style="width:75%; margin-top:16px"></div>
+            <div class="sk" style="width:55%"></div>
+        </div>
+    </div>
+
+</div>
+<script>
+// ── Static data ───────────────────────────────────────────────────────────────
+const STATION_META = {
+    'Breakfast Bistro':  { emoji: '🍳' },
+    'Breakfast Booster': { emoji: '🥞' },
+    'Soup of the Day':   { emoji: '🥣' },
+    'Platillos Latinos': { emoji: '🌮' },
+    'Viva Italia':       { emoji: '🍝' },
+    'Global Adventures': { emoji: '🌏' },
+    'Kitchen Table':     { emoji: '🍽️' },
+    'Sandwich Favorite': { emoji: '🥪' },
+    'Stone Hearth Oven': { emoji: '🍕' },
+    'Chef Special Bowl': { emoji: '🫙' },
+};
+
+// Fixed items always at the Outdoor Line (Windows Lunch Menu — verbatim from PDF)
+const OUTDOOR_FIXED = [
+    { name: 'Niman Ranch Cheeseburger on a Brioche Bun',
+      desc: 'Lettuce, Tomato, Pickles, Onions, Kettle Chips',                                                                                         price: '$7.75'       },
+    { name: 'Burrito Wrap or Bowl',
+      desc: 'Vegetarian or Grilled Free Range Chicken, Spanish Rice, Refried Beans, Shredded Lettuce, Cheese, Salsa Fresca, Sour Cream, Tortilla Chips', price: '$8.00/$8.25' },
+    { name: 'House Made Three Cheese, Pepperoni or Pizza of the Day',
+      price: '$5.50' },
+    { name: 'Crispy Chicken Wings, JoJo Potatoes, Ranch Dressing',
+      price: '$8.00' },
+];
+
+// Windows All Day Menu — verbatim from PDF
+const ALL_DAY = [
+    { name: 'Traditional Caesar Salad',
+      desc: 'Shaved Parmesan & Garlicky Croutons',                                                                                                     price: '$7.00'  },
+    { name: 'Traditional Grilled Chicken Caesar Salad',
+      desc: 'Shaved Parmesan, Garlicky Croutons',                                                                                                      price: '$7.75'  },
+    { name: 'House Turkey & Provolone Cheese Sandwich',
+      desc: 'Crisp Shaved Iceberg, Pepperoncini Slices, Mayonnaise, Italian Dressing & Chips',                                                         price: '$7.75'  },
+    { name: 'The Very-Veggie Sandwich',
+      desc: 'Wild Summer Greens, Lightly Tossed with House Vinaigrette, Jack Cheese, Guacamole Spread, Cucumber, Tomato on Ciabatta Bread',            price: '$7.75'  },
+    { name: 'Protein Pack',
+      desc: 'Free-Range Grilled Chicken, Hummus, Carrots, Snap Peas, Naan Bread',                                                                      price: '$7.75'  },
+];
+
+// Windows Afternoon Snack & Beverage Menu — verbatim from PDF
+const SNACKS = [
+    { name: 'Smoothies',                                                                                   price: '$6.50'       },
+    { name: 'Iced Matcha Latte w/ Milk or Oat Milk',                                                      price: '$5.50'       },
+    { name: 'Fresh Fruit Cup',                                                                             price: '$5.50'       },
+    { name: 'Yogurt Parfait w/ Organic Berries',                                                          price: '$5.25'       },
+    { name: 'Onion Rings',                                                                                 price: '$3.50'       },
+    { name: 'Mozzarella Sticks',                                                                          price: '$4.75'       },
+    { name: 'Protein Bars',                                                                               price: '$3.75'       },
+    { name: 'Fresh Baked Cookie', desc: 'Chocolate Chip, Triple Chocolate, Snickerdoodle, M&M',           price: '$2.75'       },
+    { name: 'Cereal cup w/ Milk',                                                                         price: '$3.75'       },
+    { name: 'Assorted Chips / Kettle Chips',                                                              price: '$2.00/$2.50' },
+    { name: 'Whole Fresh Fruit',                                                                          price: '$1.75'       },
+    { name: 'Ice Cream Bars or Ice Cream Sandwiches',                                                     price: '(MP)'        },
+];
+
+const HOURS_DATA = {
+    Breakfast:     '7:15 AM – 10:40 AM',
+    Lunch:         '11:00 AM – 1:30 PM',
+    'Faculty Lunch': '10:45 AM – 1:30 PM',
+    'Snack Bar':   '1:30 PM – 3:30 PM',
+};
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+    const dark = document.documentElement.getAttribute('data-theme') !== 'dark';
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+    document.getElementById('theme-btn').textContent = dark ? 'Light' : 'Dark';
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.getElementById('theme-btn').textContent = dark ? 'Light' : 'Dark';
+});
+
+// ── Hours pill ────────────────────────────────────────────────────────────────
+function updateHoursPill() {
+    const mins = new Date().getHours() * 60 + new Date().getMinutes();
+    const pill = document.getElementById('hours-pill');
+    let cls, msg;
+    if      (mins < 7*60+15)  { cls='closed'; msg='☕ Breakfast opens at 7:15 AM'; }
+    else if (mins < 10*60+40) { cls='open';   msg='☕ Breakfast open · closes 10:40 AM'; }
+    else if (mins < 11*60)    { cls='soon';   msg='🍽️ Lunch opens at 11:00 AM'; }
+    else if (mins < 13*60+30) { cls='open';   msg='🍽️ Lunch open · closes 1:30 PM'; }
+    else if (mins < 15*60+30) { cls='open';   msg='🍿 Snack bar open · closes 3:30 PM'; }
+    else                      { cls='closed'; msg='🔒 Café closed · breakfast at 7:15 AM'; }
+    pill.className = `hours-pill ${cls}`;
+    pill.textContent = msg;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+let menuData  = null;
+let activeDay = 0;
+
+function dayLabel(d) {
+    return d.name.slice(0, 3) + ' ' + d.date.replace(/\w+ (\d+), \d+/, '$1');
+}
+
+function todayIndex(days) {
+    const name = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
+    const i = days.findIndex(d => d.name === name);
+    return i >= 0 ? i : 0;
+}
+
+function renderTabs(days, active) {
+    const wrap = document.getElementById('tabs');
+    wrap.innerHTML = '';
+    days.forEach((day, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'tab' + (i === active ? ' active' : '');
+        btn.innerHTML = day.holiday
+            ? `${dayLabel(day)} <span class="holiday-dot"></span>`
+            : dayLabel(day);
+        btn.onclick = () => { activeDay = i; renderTabs(days, i); renderMenu(days[i]); };
+        wrap.appendChild(btn);
+    });
+}
+
+// ── Menu rendering ────────────────────────────────────────────────────────────
+function renderMenu(day) {
+    const content = document.getElementById('content');
+    let html = '';
+
+    if (day.holiday) {
+        html += `
+            <div class="section">
+                <div class="holiday-card">
+                    <div class="h-emoji">🎉</div>
+                    <h2>No School Today</h2>
+                    <p>Enjoy your day off — the café will be back next school day.</p>
+                </div>
+            </div>`;
+    } else {
+        // ── Breakfast ──
+        const breakfast = day.items.filter(i => i.category === 'breakfast');
+        if (breakfast.length) {
+            html += `<div class="section"><p class="group-label">Breakfast</p>`;
+            breakfast.forEach(i => { html += itemRowHTML(i); });
+            html += `</div>`;
+        }
+
+        // ── Indoor Line: soup + rotating mains ──
+        const indoor = day.items.filter(i => ['soup', 'main'].includes(i.category));
+        if (indoor.length) {
+            html += `<div class="section"><p class="group-label">Indoor Line</p>`;
+            indoor.forEach(i => { html += itemRowHTML(i); });
+            html += `</div>`;
+        }
+
+        // ── Outdoor Line: daily items + fixed Windows Lunch Menu items ──
+        const outdoorDaily = day.items.filter(i => ['sandwich', 'pizza', 'bowl'].includes(i.category));
+        html += `<div class="section"><p class="group-label">Outdoor Line</p>`;
+        if (outdoorDaily.length) {
+            html += `<div class="outdoor-daily">`;
+            outdoorDaily.forEach(i => { html += itemRowHTML(i); });
+            html += `</div><div class="section-divider"></div>`;
+        }
+        OUTDOOR_FIXED.forEach(i => { html += fixedItemHTML(i); });
+        html += `</div>`;
+    }
+
+    html += allDayHTML() + snacksHTML() + hoursHTML();
+    content.innerHTML = html;
+}
+
+function itemRowHTML(item) {
+    const meta  = STATION_META[item.station] ?? { emoji: '🍴' };
+    const price = item.price ? `<div class="item-price">${item.price}</div>` : '';
+    return `
+        <div class="item-row">
+            <div class="item-left">
+                <div class="item-header">
+                    <span class="item-emoji">${meta.emoji}</span>
+                    <span class="item-name">${item.station}</span>
+                </div>
+                <p class="item-desc">${item.description}</p>
+            </div>
+            ${price}
+        </div>`;
+}
+
+// Compact row used for fixed Windows Lunch Menu items inside Outdoor Line
+function fixedItemHTML(it) {
+    return `
+        <div class="mini-row">
+            <div>
+                <div class="mini-name">${it.name}</div>
+                ${it.desc ? `<div class="mini-desc">${it.desc}</div>` : ''}
+            </div>
+            <div class="mini-price">${it.price}</div>
+        </div>`;
+}
+
+function allDayHTML() {
+    const rows = ALL_DAY.map(it => `
+        <div class="mini-row">
+            <div>
+                <div class="mini-name">${it.name}</div>
+                ${it.desc ? `<div class="mini-desc">${it.desc}</div>` : ''}
+            </div>
+            <div class="mini-price">${it.price}</div>
+        </div>`).join('');
+    return `
+        <details>
+            <summary>🥗 All Day Menu <span style="font-weight:400;color:var(--text-muted);font-size:0.8rem;margin-left:6px">Windows All Day</span></summary>
+            <div class="coll-inner">${rows}</div>
+        </details>`;
+}
+
+function snacksHTML() {
+    const rows = SNACKS.map(it => `
+        <div class="mini-row">
+            <div>
+                <div class="mini-name">${it.name}</div>
+                ${it.desc ? `<div class="mini-desc">${it.desc}</div>` : ''}
+            </div>
+            <div class="mini-price">${it.price}</div>
+        </div>`).join('');
+    return `
+        <details>
+            <summary>🍪 Afternoon Snacks <span style="font-weight:400;color:var(--text-muted);font-size:0.8rem;margin-left:6px">1:30 – 3:30 PM</span></summary>
+            <div class="coll-inner">${rows}</div>
+        </details>`;
+}
+
+function hoursHTML() {
+    const rows = Object.entries(HOURS_DATA).map(([label, time]) =>
+        `<div class="h-row">${label}<span>${time}</span></div>`
+    ).join('');
+    return `
+        <details>
+            <summary>🕐 Service Hours</summary>
+            <div class="coll-inner"><div class="hours-grid">${rows}</div></div>
+        </details>`;
+}
+
+// ── Error / Load ──────────────────────────────────────────────────────────────
+function showError(msg) {
+    document.getElementById('skeleton').style.display = 'none';
+    document.getElementById('content').innerHTML = `
+        <div class="error-box">
+            <p>⚠️ ${msg}</p>
+            <button class="btn-retry" onclick="loadMenu()">Try again</button>
+        </div>`;
+}
+
+async function loadMenu() {
+    document.getElementById('skeleton').style.display = '';
+    try {
+        const res = await fetch('/api/menu');
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        menuData = await res.json();
+        if (!menuData.days?.length) throw new Error('No menu data in this week\'s PDF.');
+
+        const first = menuData.days[0], last = menuData.days.at(-1);
+        document.getElementById('week-label').textContent =
+            `Week of ${first.date} – ${last.date.replace(/\w+ /, '')}`;
+
+        activeDay = todayIndex(menuData.days);
+        renderTabs(menuData.days, activeDay);
+        document.getElementById('skeleton').style.display = 'none';
+        renderMenu(menuData.days[activeDay]);
+    } catch (err) {
+        showError(err.message);
+    }
+}
+
+updateHoursPill();
+setInterval(updateHoursPill, 60_000);
+loadMenu();
+</script>
+</body>
+</html>
