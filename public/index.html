@@ -131,30 +131,49 @@ const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http:
 
 // ── Build food photo element ──────────────────────────────────────────────────
 function makeFoodPhoto(station, height) {
-  const grad  = STATION_GRAD[station] || PHOTO_GRAD.default;
-  const emoji = STATION_EMOJI[station] || '🍴';
-  const wrap  = el('div', { style:{
-    background:grad, height:height+'px', borderRadius:'12px',
+  const photoUrl = STATION_PHOTOS[station];
+  const wrap     = el('div', { style:{
+    height:height+'px', borderRadius:'12px',
     display:'flex', alignItems:'center', justifyContent:'center',
     position:'relative', overflow:'hidden',
+    background: photoUrl ? '#000' : (STATION_GRAD[station] || PHOTO_GRAD.default),
   }});
-  const grain = el('div', { style:{
-    position:'absolute', inset:'0', opacity:'0.18',
-    backgroundImage:GRAIN, backgroundSize:'200px',
-  }});
-  const fade  = el('div', { style:{
+
+  if (photoUrl) {
+    const img = el('img', { style:{
+      position:'absolute', inset:'0', width:'100%', height:'100%',
+      objectFit:'cover', opacity:'0.85',
+    }});
+    img.src = photoUrl;
+    wrap.appendChild(img);
+  } else {
+    const grain = el('div', { style:{
+      position:'absolute', inset:'0', opacity:'0.18',
+      backgroundImage:GRAIN, backgroundSize:'200px',
+    }});
+    const icon = el('span', { style:{
+      fontSize:'3rem', filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
+      position:'relative', zIndex:'1',
+    }}, STATION_EMOJI[station] || '🍴');
+    wrap.appendChild(grain);
+    wrap.appendChild(icon);
+  }
+
+  const fade = el('div', { style:{
     position:'absolute', bottom:'0', left:'0', right:'0', height:'60%',
-    background:'linear-gradient(to top, rgba(14,13,11,0.7), transparent)',
+    background:'linear-gradient(to top, rgba(14,13,11,0.85), transparent)',
+    zIndex:'1',
   }});
-  const icon  = el('span', { style:{
-    fontSize:'3rem', filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
-    position:'relative', zIndex:'1',
-  }}, emoji);
-  wrap.appendChild(grain);
   wrap.appendChild(fade);
-  wrap.appendChild(icon);
   return wrap;
 }
+
+// ── Station photos (loaded from station-photos.json, falls back to gradient) ──
+let STATION_PHOTOS = {};
+fetch('/station-photos.json')
+  .then(r => r.ok ? r.json() : {})
+  .then(d => { STATION_PHOTOS = d; if (!state.loading) render(); })
+  .catch(() => {});
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let state = {
@@ -322,51 +341,85 @@ function buildCardGrid(day) {
   if (day.holiday) return buildHoliday();
 
   const wrap = el('div', { className:'fade-up', style:{
-    flex:'1', overflowY:'auto', padding:'32px 32px 40px', background:T.bg,
+    flex:'1', overflowY:'auto', padding:'28px 28px 40px', background:T.bg,
   }});
 
-  wrap.appendChild(el('div', { style:{ marginBottom:'24px' }},
+  wrap.appendChild(el('div', { style:{ marginBottom:'20px' }},
     el('h1', { style:{ fontFamily:"'Playfair Display',serif", fontSize:'1.6rem',
       fontWeight:'600', color:T.text }}, "Today's Menu"),
-    el('p',  { style:{ fontSize:'0.82rem', color:T.muted, marginTop:'6px' }},
+    el('p',  { style:{ fontSize:'0.82rem', color:T.muted, marginTop:'4px' }},
       'Select a station to see details'),
   ));
 
   const grid = el('div', { style:{
-    display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'16px',
+    display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'14px',
   }});
 
   day.items.forEach(item => {
+    // Full-bleed photo card — text overlaid on the image
     const card = el('div', {
       style:{
-        background:'transparent', border:`1px solid ${T.border}`,
-        borderRadius:'14px', cursor:'pointer', overflow:'hidden',
-        transition:'all 0.18s ease',
+        position:'relative', borderRadius:'14px', cursor:'pointer',
+        overflow:'hidden', height:'220px', border:`1px solid ${T.border}`,
+        transition:'transform 0.18s ease, box-shadow 0.18s ease',
       },
       onclick: () => { state.selected = item; render(); },
     });
-    card.onmouseenter = () => { card.style.background = T.cardHov; };
-    card.onmouseleave = () => { card.style.background = 'transparent'; };
+    card.onmouseenter = () => {
+      card.style.transform = 'scale(1.02)';
+      card.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
+    };
+    card.onmouseleave = () => {
+      card.style.transform = 'scale(1)';
+      card.style.boxShadow = 'none';
+    };
 
-    card.appendChild(makeFoodPhoto(item.station, 140));
+    // Background: real photo or gradient
+    const photoUrl = STATION_PHOTOS[item.station];
+    if (photoUrl) {
+      const img = el('img', { style:{
+        position:'absolute', inset:'0', width:'100%', height:'100%',
+        objectFit:'cover',
+      }});
+      img.src = photoUrl;
+      card.appendChild(img);
+    } else {
+      css(card, { background: STATION_GRAD[item.station] || PHOTO_GRAD.default });
+      const grain = el('div', { style:{
+        position:'absolute', inset:'0', opacity:'0.18',
+        backgroundImage:GRAIN, backgroundSize:'200px',
+      }});
+      card.appendChild(grain);
+    }
 
-    const body = el('div', { style:{ padding:'14px 16px 16px' }},
-      el('div', { style:{ fontSize:'0.7rem', fontWeight:'500', color:T.accent,
-        textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:'5px' }},
-        item.station),
-      el('div', { style:{ fontSize:'0.85rem', color:T.text, lineHeight:'1.45',
+    // Strong gradient scrim so text is always legible
+    card.appendChild(el('div', { style:{
+      position:'absolute', inset:'0',
+      background:'linear-gradient(to top, rgba(10,9,8,0.92) 0%, rgba(10,9,8,0.3) 55%, transparent 100%)',
+    }}));
+
+    // Text overlay at the bottom
+    const overlay = el('div', { style:{
+      position:'absolute', bottom:'0', left:'0', right:'0', padding:'14px 16px',
+    }});
+    overlay.appendChild(el('div', { style:{
+      fontSize:'0.62rem', fontWeight:'600', color:T.accent,
+      textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:'5px',
+    }}, item.station));
+    overlay.appendChild(el('div', { style:{
+      display:'flex', justifyContent:'space-between', alignItems:'flex-end', gap:'8px',
+    }},
+      el('div', { style:{
+        fontSize:'0.82rem', color:'rgba(240,232,216,0.9)', lineHeight:'1.35',
         display:'-webkit-box', WebkitLineClamp:'2', WebkitBoxOrient:'vertical',
-        overflow:'hidden' }}, item.description || item.desc || ''),
-      el('div', { style:{ marginTop:'10px', display:'flex',
-        justifyContent:'space-between', alignItems:'center' }},
-        el('span', { style:{ fontSize:'0.8rem', fontWeight:'500', color:T.mutedLt,
-          background:T.accentDim, padding:'3px 10px', borderRadius:'20px' }},
-          item.category || item.cat || ''),
-        el('span', { style:{ fontFamily:"'Playfair Display',serif", fontSize:'1rem',
-          fontWeight:'600', color:T.accent }}, item.price || ''),
-      ),
-    );
-    card.appendChild(body);
+        overflow:'hidden', flex:'1',
+      }}, item.description || item.desc || ''),
+      el('span', { style:{
+        fontFamily:"'Playfair Display',serif", fontSize:'1.05rem',
+        fontWeight:'600', color:T.accent, flexShrink:'0',
+      }}, item.price || ''),
+    ));
+    card.appendChild(overlay);
     grid.appendChild(card);
   });
 

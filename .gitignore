@@ -1,3 +1,6 @@
 node_modules/
 .DS_Store
 .firebase/
+.env
+scripts/serviceAccount.json
+public/station-photos.json

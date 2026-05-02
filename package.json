@@ -5,10 +5,17 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "match-photos": "node scripts/match-photos.js"
   },
   "dependencies": {
     "express": "^4.18.0",
     "pdf-parse": "^1.1.1"
+  },
+  "devDependencies": {
+    "dotenv": "^16.6.1",
+    "firebase-admin": "^12.7.0",
+    "openai": "^4.104.0",
+    "sharp": "^0.34.5"
   }
 }
