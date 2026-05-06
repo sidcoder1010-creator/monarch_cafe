@@ -24,6 +24,8 @@ body { font-family: 'DM Sans', sans-serif; background: #0e0d0b; color: #f0e8d8; 
 <body>
 <div id="app"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
@@ -88,11 +90,22 @@ const ALL_DAY = [
   { name:'Protein Pack', desc:'Free-Range Grilled Chicken, Hummus, Carrots, Snap Peas, Naan Bread', price:'$7.75' },
 ];
 const HOURS_DATA = [
-  { s:'Breakfast',     t:'7:15 AM – 10:40 AM' },
-  { s:'Lunch',         t:'11:00 AM – 1:30 PM' },
-  { s:'Faculty Lunch', t:'10:45 AM – 1:30 PM' },
-  { s:'Snack Bar',     t:'1:30 PM – 3:30 PM' },
+  { s:'Breakfast',           t:'7:15 AM – 10:40 AM' },
+  { s:'Lunch',               t:'11:00 AM – 11:45 AM  /  12:00 PM – 1:30 PM' },
+  { s:'Faculty Staff Lunch', t:'10:45 AM – 1:30 PM' },
+  { s:'After School Snack',  t:'1:30 PM – 3:30 PM' },
 ];
+
+// ── Firebase ──────────────────────────────────────────────────────────────────
+firebase.initializeApp({
+  apiKey: "AIzaSyACLqhIGei2ax3-VzvpYqQ4K5OvuEaauaQ",
+  authDomain: "monarch-cafe.firebaseapp.com",
+  projectId: "monarch-cafe",
+  storageBucket: "monarch-cafe.firebasestorage.app",
+  messagingSenderId: "714842857141",
+  appId: "1:714842857141:web:2ef4b395da67badbbd68fc"
+});
+const db = firebase.firestore();
 
 // ── Hours status ──────────────────────────────────────────────────────────────
 function getStatus() {
@@ -101,7 +114,7 @@ function getStatus() {
   if (m < 10*60+40)  return { label:'Breakfast · Open', color:'#6fcf97' };
   if (m < 11*60)     return { label:'Lunch soon', color:T.accent };
   if (m < 13*60+30)  return { label:'Lunch · Open', color:'#6fcf97' };
-  if (m < 15*60+30)  return { label:'Snack Bar · Open', color:'#6fcf97' };
+  if (m < 15*60+30)  return { label:'After School Snack · Open', color:'#6fcf97' };
   return               { label:'Closed', color:'#eb5757' };
 }
 
@@ -131,7 +144,7 @@ const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http:
 
 // ── Build food photo element ──────────────────────────────────────────────────
 function makeFoodPhoto(station, height) {
-  const photoUrl = STATION_PHOTOS[station];
+  const photoUrl = STATION_PHOTOS[station]?.main;
   const wrap     = el('div', { style:{
     height:height+'px', borderRadius:'12px',
     display:'flex', alignItems:'center', justifyContent:'center',
@@ -170,65 +183,152 @@ function makeFoodPhoto(station, height) {
 
 // ── Station photos (loaded from station-photos.json, falls back to gradient) ──
 let STATION_PHOTOS = {};
-fetch('/station-photos.json')
-  .then(r => r.ok ? r.json() : {})
-  .then(d => { STATION_PHOTOS = d; if (!state.loading) render(); })
-  .catch(() => {});
+function loadPhotos() {
+  const day = state.days[state.activeDay]?.name || '';
+  fetch('/api/photos?day=' + encodeURIComponent(day))
+    .then(r => r.ok ? r.json() : {})
+    .then(d => { STATION_PHOTOS = d; if (!state.loading) render(); })
+    .catch(() => {});
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
+function isWeekend() {
+  const now = new Date();
+  const d = now.getDay();
+  const m = now.getHours() * 60 + now.getMinutes();
+  return d === 0 || d === 6 || (d === 5 && m >= 15 * 60 + 30);
+}
+
 let state = {
-  days:      [],
-  activeDay: 0,
-  selected:  null,
-  loading:   true,
-  error:     null,
-  weekLabel: 'Archbishop Mitty High School',
-  status:    getStatus(),
+  days:             [],
+  activeDay:        0,
+  selected:         null,
+  selectedOutdoor:  null,
+  loading:          true,
+  error:            null,
+  weekLabel:        'Archbishop Mitty High School',
+  status:           getStatus(),
+  ratings:          {},
+  weekendDismissed: false,
+  holidayDismissed: false,
 };
 
 // ── Render ────────────────────────────────────────────────────────────────────
+let _renderPending = false;
 function render() {
-  const root = document.getElementById('app');
-  root.innerHTML = '';
+  if (_renderPending) return;
+  _renderPending = true;
+  requestAnimationFrame(() => {
+    _renderPending = false;
+    const root = document.getElementById('app');
 
-  const app = el('div', { style:{
-    display:'flex', height:'100vh', overflow:'hidden', background:T.bg,
-  }});
+    const app = el('div', { style:{
+      display:'flex', height:'100vh', overflow:'hidden', background:T.bg,
+    }});
 
-  // ── Sidebar ──
-  const sidebarEl = buildSidebar();
-  app.appendChild(sidebarEl);
+    app.appendChild(buildSidebar());
 
-  // ── Right panel ──
-  const right = el('div', { style:{
-    flex:'1', display:'flex', overflow:'hidden', position:'relative',
-  }});
+    const right = el('div', { style:{
+      flex:'1', display:'flex', overflow:'hidden', position:'relative',
+    }});
 
-  if (state.loading) {
-    right.appendChild(buildSkeleton());
-  } else if (state.error) {
-    right.appendChild(buildError());
-  } else {
-    const day = state.days[state.activeDay];
-    if (state.selected) {
-      right.appendChild(buildDetail(state.selected));
-      const backBtn = el('button', {
-        style:{
-          position:'absolute', top:'20px', right:'24px',
-          background:T.card, border:`1px solid ${T.border}`,
-          color:T.muted, borderRadius:'20px', padding:'6px 16px',
-          fontSize:'0.78rem', cursor:'pointer', fontFamily:'inherit', zIndex:'10',
-        },
-        onclick: () => { state.selected = null; render(); },
-      }, '← Back');
-      right.appendChild(backBtn);
+    if (state.loading) {
+      right.appendChild(buildSkeleton());
+    } else if (state.error) {
+      right.appendChild(buildError());
     } else {
+      const day = state.days[state.activeDay];
       right.appendChild(buildCardGrid(day));
+      if (state.selected) app.appendChild(buildModal(state.selected));
     }
-  }
 
-  app.appendChild(right);
-  root.appendChild(app);
+    app.appendChild(right);
+
+    const nodes = [app];
+    if (state.selectedOutdoor) nodes.push(buildOutdoorModal(state.selectedOutdoor));
+    if (isWeekend() && !state.weekendDismissed) nodes.push(buildWeekendModal());
+    if (isTodayHoliday() && !state.holidayDismissed) nodes.push(buildHolidayModal());
+
+    root.replaceChildren(...nodes);
+  });
+}
+
+// ── Holiday check ─────────────────────────────────────────────────────────────
+function isTodayHoliday() {
+  if (!state.days.length) return false;
+  const name = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
+  const today = state.days.find(d => d.name === name);
+  return today?.holiday === true;
+}
+
+// ── Holiday modal ─────────────────────────────────────────────────────────────
+function buildHolidayModal() {
+  const overlay = el('div', { style:{
+    position:'fixed', inset:'0', zIndex:'200',
+    background:'rgba(0,0,0,0.78)', backdropFilter:'blur(6px)',
+    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px',
+  }});
+
+  const modal = el('div', { style:{
+    background:T.card, borderRadius:'20px', border:`1px solid ${T.border}`,
+    width:'380px', maxWidth:'100%', padding:'44px 36px 36px',
+    textAlign:'center', boxShadow:'0 24px 64px rgba(0,0,0,0.7)',
+  }});
+
+  modal.appendChild(el('div', { style:{ fontSize:'2.8rem', marginBottom:'18px' }}, '🎉'));
+  modal.appendChild(el('h2', { style:{
+    fontFamily:"'Playfair Display',serif", fontSize:'1.55rem',
+    fontWeight:'600', color:T.text, marginBottom:'10px', lineHeight:'1.2',
+  }}, 'No School Today'));
+  modal.appendChild(el('p', { style:{
+    fontSize:'0.88rem', color:T.muted, lineHeight:'1.65', marginBottom:'28px',
+  }}, 'Monarch Café is closed for this school holiday. Enjoy your day off!'));
+  modal.appendChild(el('button', {
+    style:{
+      padding:'10px 32px', borderRadius:'10px', border:'none',
+      background:T.accent, color:T.bg, fontFamily:'inherit',
+      fontSize:'0.88rem', fontWeight:'500', cursor:'pointer',
+    },
+    onclick: () => { state.holidayDismissed = true; render(); },
+  }, 'Got it'));
+
+  overlay.appendChild(modal);
+  return overlay;
+}
+
+// ── Weekend modal ─────────────────────────────────────────────────────────────
+function buildWeekendModal() {
+  const overlay = el('div', { style:{
+    position:'fixed', inset:'0', zIndex:'200',
+    background:'rgba(0,0,0,0.78)', backdropFilter:'blur(6px)',
+    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px',
+  }});
+
+  const modal = el('div', { style:{
+    background:T.card, borderRadius:'20px', border:`1px solid ${T.border}`,
+    width:'380px', maxWidth:'100%', padding:'44px 36px 36px',
+    textAlign:'center', boxShadow:'0 24px 64px rgba(0,0,0,0.7)',
+  }});
+
+  modal.appendChild(el('div', { style:{ fontSize:'2.8rem', marginBottom:'18px' }}, '🌙'));
+  modal.appendChild(el('h2', { style:{
+    fontFamily:"'Playfair Display',serif", fontSize:'1.55rem',
+    fontWeight:'600', color:T.text, marginBottom:'10px', lineHeight:'1.2',
+  }}, 'Closed for the Weekend'));
+  modal.appendChild(el('p', { style:{
+    fontSize:'0.88rem', color:T.muted, lineHeight:'1.65', marginBottom:'28px',
+  }}, 'Monarch Café is closed Saturday and Sunday. Come back Monday at 7:15 AM!'));
+  modal.appendChild(el('button', {
+    style:{
+      padding:'10px 32px', borderRadius:'10px', border:'none',
+      background:T.accent, color:T.bg, fontFamily:'inherit',
+      fontSize:'0.88rem', fontWeight:'500', cursor:'pointer',
+    },
+    onclick: () => { state.weekendDismissed = true; render(); },
+  }, 'Got it'));
+
+  overlay.appendChild(modal);
+  return overlay;
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -246,7 +346,9 @@ function buildSidebar() {
                     :                               'rgba(122,110,97,0.15)';
   const header = el('div', { style:{ padding:'32px 24px 24px' }},
     el('div', { style:{ fontFamily:"'Playfair Display',serif", fontSize:'1.4rem',
-      fontWeight:'600', color:T.text, letterSpacing:'-0.01em' }}, 'Monarch Café'),
+      fontWeight:'600', color:T.text, letterSpacing:'-0.01em', cursor:'pointer' },
+      onclick: () => { state.selected = null; render(); },
+    }, 'Monarch Café'),
     el('div', { style:{ fontSize:'0.72rem', color:T.muted, marginTop:'4px',
       letterSpacing:'0.04em' }}, state.weekLabel),
     el('div', { style:{ marginTop:'14px', display:'inline-flex', alignItems:'center',
@@ -271,8 +373,8 @@ function buildSidebar() {
         fontSize:'0.7rem', fontWeight:'500', cursor:'pointer', fontFamily:'inherit',
         transition:'all 0.15s', position:'relative',
       },
-      onclick: () => { state.activeDay = i; state.selected = null; render(); },
-    }, day.name.slice(0,3) + ' ' + day.date.replace(/\w+ (\d+), \d+/, '$1'));
+      onclick: () => { state.activeDay = i; state.selected = null; render(); loadPhotos(); },
+    }, day.name.slice(0,3) + ' ' + day.date.replace(/\w+ (\d+), \d+/, '$1'));
     if (day.holiday) {
       btn.appendChild(el('span', { style:{
         position:'absolute', top:'4px', right:'4px', width:'4px', height:'4px',
@@ -289,6 +391,7 @@ function buildSidebar() {
     sidebar.appendChild(el('div', { style:{
       padding:'14px 20px 10px', fontSize:'0.72rem', color:T.muted,
       fontWeight:'500', letterSpacing:'0.06em', textTransform:'uppercase',
+      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
     }}, d.name + ' · ' + d.date.replace(/(\w+) (\d+), \d+/, '$1 $2')));
   }
 
@@ -333,6 +436,43 @@ function buildSidebar() {
     });
   }
   sidebar.appendChild(list);
+
+  // Outdoor everyday items
+  const outdoorSection = el('div', { style:{
+    borderTop:`1px solid ${T.border}`, padding:'14px 12px 20px', flexShrink:'0',
+  }});
+  outdoorSection.appendChild(el('div', { style:{
+    fontSize:'0.62rem', fontWeight:'500', color:T.muted,
+    textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:'10px', paddingLeft:'4px',
+  }}, 'Outdoor Window · Everyday'));
+  OUTDOOR_FIXED.forEach(item => {
+    const row = el('div', {
+      style:{
+        display:'flex', justifyContent:'space-between', alignItems:'flex-start',
+        gap:'8px', padding:'7px 4px', borderBottom:`1px solid ${T.border+'88'}`,
+        cursor:'pointer', borderRadius:'6px', transition:'background 0.15s',
+      },
+      onclick: () => { state.selectedOutdoor = item; render(); },
+      onmouseenter: (e) => { e.currentTarget.style.background = T.accentDim; },
+      onmouseleave: (e) => { e.currentTarget.style.background = 'transparent'; },
+    });
+    row.appendChild(el('div', { style:{ flex:'1', minWidth:'0' }},
+      el('div', { style:{
+        fontSize:'0.75rem', color:T.mutedLt, fontWeight:'500',
+        lineHeight:'1.3',
+      }}, item.name),
+      item.desc ? el('div', { style:{
+        fontSize:'0.67rem', color:T.muted, marginTop:'2px', lineHeight:'1.3',
+      }}, item.desc) : null,
+    ));
+    row.appendChild(el('span', { style:{
+      fontFamily:"'Playfair Display',serif", fontSize:'0.78rem',
+      color:T.accent, flexShrink:'0', fontWeight:'600',
+    }}, item.price));
+    outdoorSection.appendChild(row);
+  });
+  sidebar.appendChild(outdoorSection);
+
   return sidebar;
 }
 
@@ -344,18 +484,38 @@ function buildCardGrid(day) {
     flex:'1', overflowY:'auto', padding:'28px 28px 40px', background:T.bg,
   }});
 
-  wrap.appendChild(el('div', { style:{ marginBottom:'20px' }},
+  wrap.appendChild(el('div', { style:{ marginBottom:'24px' }},
     el('h1', { style:{ fontFamily:"'Playfair Display',serif", fontSize:'1.6rem',
       fontWeight:'600', color:T.text }}, "Today's Menu"),
     el('p',  { style:{ fontSize:'0.82rem', color:T.muted, marginTop:'4px' }},
       'Select a station to see details'),
   ));
 
-  const grid = el('div', { style:{
-    display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'14px',
-  }});
+  const breakfastItems = day.items.filter(i => i.category === 'breakfast');
+  const lunchItems     = day.items.filter(i => i.category !== 'breakfast');
 
-  day.items.forEach(item => {
+  const m = new Date().getHours() * 60 + new Date().getMinutes();
+  const breakfastFirst = m < 10 * 60 + 40;
+  const sections = breakfastFirst
+    ? [['Breakfast', breakfastItems], ['Lunch', lunchItems]]
+    : [['Lunch', lunchItems], ['Breakfast', breakfastItems]];
+
+  sections.forEach(([label, items], si) => {
+    if (!items.length) return;
+
+    const section = el('div', { style:{ marginBottom:'24px' }});
+    section.appendChild(el('div', { style:{
+      fontSize:'0.65rem', fontWeight:'600', color:T.muted,
+      textTransform:'uppercase', letterSpacing:'0.1em',
+      marginBottom:'12px', marginTop: si === 0 ? '0' : '8px',
+      paddingBottom:'8px', borderBottom:`1px solid ${T.border}`,
+    }}, label));
+
+    const grid = el('div', { style:{
+      display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'14px',
+    }});
+
+    items.forEach(item => {
     // Full-bleed photo card — text overlaid on the image
     const card = el('div', {
       style:{
@@ -375,7 +535,7 @@ function buildCardGrid(day) {
     };
 
     // Background: real photo or gradient
-    const photoUrl = STATION_PHOTOS[item.station];
+    const photoUrl = STATION_PHOTOS[item.station]?.main;
     if (photoUrl) {
       const img = el('img', { style:{
         position:'absolute', inset:'0', width:'100%', height:'100%',
@@ -420,10 +580,21 @@ function buildCardGrid(day) {
       }}, item.price || ''),
     ));
     card.appendChild(overlay);
-    grid.appendChild(card);
+    if (state.ratings[item.station]) {
+      const { avg } = state.ratings[item.station];
+      card.appendChild(el('div', { style:{
+        position:'absolute', top:'10px', right:'10px', zIndex:'2',
+        background:'rgba(0,0,0,0.55)', borderRadius:'20px', padding:'4px 10px',
+        fontSize:'0.72rem', color:T.accent, fontWeight:'600',
+      }}, '★ ' + avg.toFixed(1)));
+    }
+      grid.appendChild(card);
+    });
+
+    section.appendChild(grid);
+    wrap.appendChild(section);
   });
 
-  wrap.appendChild(grid);
   return wrap;
 }
 
@@ -477,6 +648,264 @@ function buildDetail(item) {
   panel.appendChild(hoursSection);
 
   return panel;
+}
+
+// ── Photo carousel (used in modal when multiple photos exist) ─────────────────
+function buildPhotoCarousel(station, height, extraStyles) {
+  const data    = STATION_PHOTOS[station];
+  const gallery = data?.gallery || (data?.main ? [data.main] : []);
+
+  if (gallery.length <= 1) {
+    const wrap = makeFoodPhoto(station, height);
+    if (extraStyles) css(wrap, extraStyles);
+    return wrap;
+  }
+
+  let current = 0;
+
+  const wrap = el('div', { style:{
+    position:'relative', height:height+'px', overflow:'hidden',
+    ...(extraStyles || {}),
+  }});
+
+  const imgEl = el('img', { style:{
+    position:'absolute', inset:'0', width:'100%', height:'100%', objectFit:'cover',
+  }});
+  imgEl.src = gallery[0];
+  wrap.appendChild(imgEl);
+
+  wrap.appendChild(el('div', { style:{
+    position:'absolute', inset:'0',
+    background:'linear-gradient(to top, rgba(14,13,11,0.85), transparent)',
+    zIndex:'1',
+  }}));
+
+  const counter = el('div', { style:{
+    position:'absolute', top:'10px', left:'10px', zIndex:'3',
+    background:'rgba(0,0,0,0.55)', borderRadius:'20px', padding:'3px 10px',
+    fontSize:'0.72rem', color:T.text,
+  }}, `1 / ${gallery.length}`);
+  wrap.appendChild(counter);
+
+  const dotsWrap = el('div', { style:{
+    position:'absolute', bottom:'12px', left:'0', right:'0',
+    display:'flex', justifyContent:'center', gap:'6px', zIndex:'3',
+  }});
+  const dots = gallery.map((_, i) => {
+    const dot = el('div', { style:{
+      width:'6px', height:'6px', borderRadius:'50%', cursor:'pointer',
+      background: i === 0 ? T.accent : 'rgba(255,255,255,0.35)',
+      transition:'background 0.2s',
+    }});
+    dot.onclick = (e) => { e.stopPropagation(); goTo(i); };
+    return dot;
+  });
+  dots.forEach(d => dotsWrap.appendChild(d));
+  wrap.appendChild(dotsWrap);
+
+  const btnStyle = {
+    position:'absolute', top:'50%', transform:'translateY(-50%)', zIndex:'3',
+    width:'32px', height:'32px', borderRadius:'50%',
+    background:'rgba(14,13,11,0.65)', border:`1px solid ${T.border}`,
+    color:T.text, fontSize:'1.2rem', cursor:'pointer', fontFamily:'inherit',
+    display:'flex', alignItems:'center', justifyContent:'center',
+  };
+  const prevBtn = el('button', { style:{ ...btnStyle, left:'10px' }},  '‹');
+  const nextBtn = el('button', { style:{ ...btnStyle, right:'10px' }}, '›');
+  prevBtn.onclick = (e) => { e.stopPropagation(); goTo(current - 1); };
+  nextBtn.onclick = (e) => { e.stopPropagation(); goTo(current + 1); };
+  wrap.appendChild(prevBtn);
+  wrap.appendChild(nextBtn);
+
+  function goTo(i) {
+    current = (i + gallery.length) % gallery.length;
+    imgEl.src = gallery[current];
+    counter.textContent = `${current + 1} / ${gallery.length}`;
+    dots.forEach((d, j) => {
+      d.style.background = j === current ? T.accent : 'rgba(255,255,255,0.35)';
+    });
+  }
+
+  return wrap;
+}
+
+// ── Outdoor item modal ────────────────────────────────────────────────────────
+function buildOutdoorModal(item) {
+  const overlay = el('div', { style:{
+    position:'fixed', inset:'0', zIndex:'100',
+    background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)',
+    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px',
+  }});
+  overlay.onclick = (e) => { if (e.target === overlay) { state.selectedOutdoor = null; render(); } };
+
+  const modal = el('div', { style:{
+    background:T.card, borderRadius:'16px', border:`1px solid ${T.border}`,
+    width:'480px', maxWidth:'100%', maxHeight:'85vh',
+    overflowY:'auto', position:'relative',
+    boxShadow:'0 24px 64px rgba(0,0,0,0.6)',
+  }});
+
+  // Photo — looks for a Storage photo matched to this outdoor item name
+  const photoUrl = STATION_PHOTOS[item.name]?.main ||
+    STATION_PHOTOS[item.name.split(',')[0].trim()]?.main;
+  const photoWrap = el('div', { style:{
+    height:'200px', borderRadius:'16px 16px 0 0', overflow:'hidden',
+    position:'relative', background:'linear-gradient(145deg,#2a1f14 0%,#5a3e28 50%,#8a6040 100%)',
+  }});
+  if (photoUrl) {
+    const img = el('img', { style:{
+      position:'absolute', inset:'0', width:'100%', height:'100%', objectFit:'cover',
+    }});
+    img.src = photoUrl;
+    photoWrap.appendChild(img);
+  }
+  photoWrap.appendChild(el('div', { style:{
+    position:'absolute', inset:'0',
+    background:'linear-gradient(to top, rgba(14,13,11,0.85), transparent)',
+  }}));
+  modal.appendChild(photoWrap);
+
+  modal.appendChild(el('button', {
+    style:{
+      position:'absolute', top:'12px', right:'12px', zIndex:'2',
+      width:'32px', height:'32px', borderRadius:'50%',
+      background:'rgba(14,13,11,0.7)', border:`1px solid ${T.border}`,
+      color:T.text, fontSize:'1.2rem', cursor:'pointer',
+      fontFamily:'inherit', lineHeight:'1',
+    },
+    onclick: () => { state.selectedOutdoor = null; render(); },
+  }, '×'));
+
+  const info = el('div', { style:{ padding:'22px 24px 28px' }});
+  info.appendChild(el('div', { style:{
+    fontSize:'0.7rem', fontWeight:'500', color:T.accent,
+    textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:'8px',
+  }}, 'Outdoor Window · Everyday'));
+  info.appendChild(el('h2', { style:{
+    fontFamily:"'Playfair Display',serif", fontSize:'1.6rem',
+    fontWeight:'600', color:T.text, lineHeight:'1.2', marginBottom:'12px',
+  }}, item.name));
+  if (item.desc) {
+    info.appendChild(el('p', { style:{
+      fontSize:'0.95rem', color:T.mutedLt, lineHeight:'1.7', marginBottom:'20px',
+    }}, item.desc));
+  }
+  info.appendChild(el('div', { style:{
+    display:'flex', alignItems:'center', gap:'12px',
+    paddingTop:'18px', borderTop:`1px solid ${T.border}`,
+  }},
+    el('span', { style:{
+      fontFamily:"'Playfair Display',serif", fontSize:'1.8rem',
+      fontWeight:'600', color:T.accent,
+    }}, item.price || ''),
+    el('span', { style:{ fontSize:'0.8rem', color:T.muted }},
+      'Available during service hours'),
+  ));
+  modal.appendChild(info);
+
+  // Reviews
+  const reviewsWrap = el('div', { style:{ padding:'0 24px 28px' }});
+  const reviewsHeader = el('div', { style:{
+    display:'flex', alignItems:'center', justifyContent:'space-between',
+    paddingTop:'20px', borderTop:`1px solid ${T.border}`, marginBottom:'14px',
+  }});
+  reviewsHeader.appendChild(el('div', { style:{
+    fontSize:'0.65rem', fontWeight:'500', color:T.muted,
+    textTransform:'uppercase', letterSpacing:'0.12em',
+  }}, 'Reviews'));
+  const avgEl = el('div', { style:{ fontSize:'0.82rem', color:T.accent }});
+  reviewsHeader.appendChild(avgEl);
+  reviewsWrap.appendChild(reviewsHeader);
+
+  const reviewsList = el('div');
+  reviewsList.appendChild(el('div', { style:{ color:T.muted, fontSize:'0.82rem', padding:'8px 0' }}, 'Loading…'));
+  reviewsWrap.appendChild(reviewsList);
+  reviewsWrap.appendChild(buildReviewForm('outdoor', item.name, reviewsList, avgEl));
+  modal.appendChild(reviewsWrap);
+
+  overlay.appendChild(modal);
+  loadReviews('outdoor', item.name, reviewsList, avgEl);
+  return overlay;
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function buildModal(item) {
+  const overlay = el('div', { style:{
+    position:'fixed', inset:'0', zIndex:'100',
+    background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)',
+    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px',
+  }});
+  overlay.onclick = (e) => { if (e.target === overlay) { state.selected = null; render(); } };
+
+  const modal = el('div', { style:{
+    background:T.card, borderRadius:'16px', border:`1px solid ${T.border}`,
+    width:'480px', maxWidth:'100%', maxHeight:'85vh',
+    overflowY:'auto', position:'relative',
+    boxShadow:'0 24px 64px rgba(0,0,0,0.6)',
+  }});
+
+  const photo = buildPhotoCarousel(item.station, 240, { borderRadius:'16px 16px 0 0' });
+  modal.appendChild(photo);
+
+  modal.appendChild(el('button', {
+    style:{
+      position:'absolute', top:'12px', right:'12px', zIndex:'2',
+      width:'32px', height:'32px', borderRadius:'50%',
+      background:'rgba(14,13,11,0.7)', border:`1px solid ${T.border}`,
+      color:T.text, fontSize:'1.2rem', cursor:'pointer',
+      fontFamily:'inherit', lineHeight:'1',
+    },
+    onclick: () => { state.selected = null; render(); },
+  }, '×'));
+
+  const info = el('div', { style:{ padding:'22px 24px 28px' }});
+  info.appendChild(el('div', { style:{
+    fontSize:'0.7rem', fontWeight:'500', color:T.accent,
+    textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:'8px',
+  }}, (item.category || item.cat || '') + ' · Today'));
+  info.appendChild(el('h2', { style:{
+    fontFamily:"'Playfair Display',serif", fontSize:'1.6rem',
+    fontWeight:'600', color:T.text, lineHeight:'1.2', marginBottom:'12px',
+  }}, item.station));
+  info.appendChild(el('p', { style:{
+    fontSize:'0.95rem', color:T.mutedLt, lineHeight:'1.7', marginBottom:'20px',
+  }}, item.description || item.desc || ''));
+  info.appendChild(el('div', { style:{
+    display:'flex', alignItems:'center', gap:'12px',
+    paddingTop:'18px', borderTop:`1px solid ${T.border}`,
+  }},
+    el('span', { style:{
+      fontFamily:"'Playfair Display',serif", fontSize:'1.8rem',
+      fontWeight:'600', color:T.accent,
+    }}, item.price || ''),
+    el('span', { style:{ fontSize:'0.8rem', color:T.muted }},
+      'Available during service hours'),
+  ));
+  modal.appendChild(info);
+
+  // Reviews
+  const reviewsWrap = el('div', { style:{ padding:'0 24px 28px' }});
+  const reviewsHeader = el('div', { style:{
+    display:'flex', alignItems:'center', justifyContent:'space-between',
+    paddingTop:'20px', borderTop:`1px solid ${T.border}`, marginBottom:'14px',
+  }});
+  reviewsHeader.appendChild(el('div', { style:{
+    fontSize:'0.65rem', fontWeight:'500', color:T.muted,
+    textTransform:'uppercase', letterSpacing:'0.12em',
+  }}, 'Reviews'));
+  const avgEl = el('div', { style:{ fontSize:'0.82rem', color:T.accent }});
+  reviewsHeader.appendChild(avgEl);
+  reviewsWrap.appendChild(reviewsHeader);
+
+  const reviewsList = el('div');
+  reviewsList.appendChild(el('div', { style:{ color:T.muted, fontSize:'0.82rem', padding:'8px 0' }}, 'Loading…'));
+  reviewsWrap.appendChild(reviewsList);
+  reviewsWrap.appendChild(buildReviewForm(item.station, item.description, reviewsList, avgEl));
+  modal.appendChild(reviewsWrap);
+
+  overlay.appendChild(modal);
+  loadReviews(item.station, item.description, reviewsList, avgEl);
+  return overlay;
 }
 
 function buildListSection(title, items, extraStyle) {
@@ -571,6 +1000,7 @@ async function loadMenu() {
     state.weekLabel = 'Week of ' + first.date + ' – ' + last.date.replace(/\w+ /, '');
     state.loading   = false;
     render();
+    loadPhotos();
   } catch(err) {
     state.error   = err.message;
     state.loading = false;
@@ -578,9 +1008,163 @@ async function loadMenu() {
   }
 }
 
+// ── Reviews ───────────────────────────────────────────────────────────────────
+function buildReviewItem(r) {
+  const wrap = el('div', { style:{ padding:'12px 0', borderBottom:`1px solid ${T.border}` }});
+  wrap.appendChild(el('div', { style:{ color:T.accent, fontSize:'0.95rem', marginBottom:'4px' }},
+    '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)));
+  if (r.comment) {
+    wrap.appendChild(el('div', { style:{ fontSize:'0.85rem', color:T.mutedLt, lineHeight:'1.55' }},
+      r.comment));
+  }
+  return wrap;
+}
+
+async function loadReviews(station, description, listEl, avgEl) {
+  const itemKey = station + '||' + (description || '');
+  try {
+    const snap = await db.collection('reviews')
+      .where('itemKey', '==', itemKey)
+      .get();
+    const docs = [];
+    snap.forEach(doc => docs.push(doc.data()));
+    docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    listEl.innerHTML = '';
+    if (!docs.length) {
+      if (avgEl) avgEl.textContent = '';
+      listEl.appendChild(el('div', { style:{ color:T.muted, fontSize:'0.82rem',
+        fontStyle:'italic', padding:'10px 0', fontFamily:"'Playfair Display',serif" }},
+        'No reviews yet — be the first!'));
+      return;
+    }
+    let total = 0;
+    docs.forEach(r => {
+      total += r.rating;
+      listEl.appendChild(buildReviewItem(r));
+    });
+    if (avgEl) avgEl.textContent =
+      (total / docs.length).toFixed(1) + ' ★  ·  ' + docs.length + ' review' + (docs.length !== 1 ? 's' : '');
+  } catch(err) {
+    listEl.innerHTML = '';
+    listEl.appendChild(el('div', { style:{ color:'#eb5757', fontSize:'0.8rem' }},
+      'Could not load reviews.'));
+  }
+}
+
+function buildReviewForm(station, description, listEl, avgEl) {
+  const wrap = el('div', { style:{ marginTop:'20px', paddingTop:'20px', borderTop:`1px solid ${T.border}` }});
+  wrap.appendChild(el('div', { style:{ fontSize:'0.65rem', fontWeight:'500', color:T.muted,
+    textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:'12px' }},
+    'Leave a Review'));
+
+  let selectedRating = 0;
+  const starWrap = el('div', { style:{ display:'flex', gap:'4px', marginBottom:'12px' }});
+  const stars = [];
+  for (let i = 1; i <= 5; i++) {
+    const idx = i;
+    const star = el('span', { style:{
+      fontSize:'1.6rem', cursor:'pointer', color:T.border,
+      transition:'color 0.1s', userSelect:'none', lineHeight:'1',
+    }}, '★');
+    star.onclick = () => {
+      selectedRating = idx;
+      stars.forEach((s, j) => { s.style.color = j < idx ? T.accent : T.border; });
+    };
+    star.onmouseenter = () => {
+      stars.forEach((s, j) => { s.style.color = j < idx ? T.accent : T.border; });
+    };
+    star.onmouseleave = () => {
+      stars.forEach((s, j) => { s.style.color = j < selectedRating ? T.accent : T.border; });
+    };
+    stars.push(star);
+    starWrap.appendChild(star);
+  }
+  wrap.appendChild(starWrap);
+
+  const textarea = el('textarea', {
+    style:{
+      width:'100%', background:T.bg, border:`1px solid ${T.border}`,
+      borderRadius:'8px', color:T.text, fontFamily:'inherit',
+      fontSize:'0.85rem', padding:'10px 12px', resize:'none',
+      outline:'none', lineHeight:'1.5', boxSizing:'border-box',
+      marginBottom:'10px',
+    },
+    placeholder: 'Share your thoughts… (optional)',
+    rows: '3',
+  });
+  wrap.appendChild(textarea);
+
+  const errMsg = el('div', { style:{
+    color:'#eb5757', fontSize:'0.78rem', marginBottom:'8px', display:'none',
+  }}, '');
+
+  const btn = el('button', {
+    style:{
+      padding:'8px 22px', borderRadius:'8px', background:T.accent,
+      color:T.bg, border:'none', fontFamily:'inherit',
+      fontSize:'0.82rem', fontWeight:'500', cursor:'pointer',
+    },
+    onclick: async () => {
+      errMsg.style.display = 'none';
+      if (!selectedRating) {
+        errMsg.textContent = 'Please pick a star rating.';
+        errMsg.style.display = 'block';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Submitting…';
+      try {
+        const itemKey = station + '||' + (description || '');
+        await db.collection('reviews').add({
+          station,
+          itemKey,
+          rating: selectedRating,
+          comment: textarea.value.trim(),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        selectedRating = 0;
+        stars.forEach(s => { s.style.color = T.border; });
+        textarea.value = '';
+        btn.disabled = false;
+      btn.textContent = 'Submit';
+      loadReviews(station, description, listEl, avgEl);
+      loadAllRatings();
+      } catch(e) {
+        errMsg.textContent = 'Could not submit — please try again.';
+        errMsg.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Submit';
+      }
+    },
+  }, 'Submit');
+
+  wrap.appendChild(errMsg);
+  wrap.appendChild(btn);
+  return wrap;
+}
+
+// ── Load all ratings for card badges ─────────────────────────────────────────
+async function loadAllRatings() {
+  try {
+    const day = state.days[state.activeDay];
+    if (!day) return;
+    const acc = {};
+    for (const item of (day.items || [])) {
+      const itemKey = item.station + '||' + (item.description || '');
+      const snap = await db.collection('reviews').where('itemKey', '==', itemKey).get();
+      let total = 0, count = 0;
+      snap.forEach(doc => { total += doc.data().rating; count++; });
+      if (count > 0) acc[item.station] = { avg: total / count, count };
+    }
+    state.ratings = acc;
+    if (!state.loading) render();
+  } catch(e) {}
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 setInterval(() => { state.status = getStatus(); render(); }, 60000);
 loadMenu();
+loadAllRatings();
 </script>
 </body>
 </html>

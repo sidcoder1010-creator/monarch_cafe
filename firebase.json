@@ -1,11 +1,26 @@
 {
-  "hosting": {
-    "public": "public",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [
-      { "source": "/api/**", "function": "api", "region": "us-central1" }
-    ]
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   },
+  "hosting": [
+    {
+      "target": "production",
+      "public": "public",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [
+        { "source": "/api/**", "function": "api", "region": "us-central1" }
+      ]
+    },
+    {
+      "target": "dev",
+      "public": "public",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [
+        { "source": "/api/**", "function": "api", "region": "us-central1" }
+      ]
+    }
+  ],
   "functions": {
     "source": "functions"
   }

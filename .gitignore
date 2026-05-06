@@ -3,4 +3,4 @@ node_modules/
 .firebase/
 .env
 scripts/serviceAccount.json
-public/station-photos.json
+scripts/MenuServiceAccount.json

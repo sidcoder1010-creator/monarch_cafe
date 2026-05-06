@@ -3,11 +3,14 @@ const express = require('express');
 const path    = require('path');
 const fs      = require('fs');
 const pdf     = require('pdf-parse');
+const admin   = require('firebase-admin');
+
+admin.initializeApp();
+const bucket = admin.storage().bucket('monarch-cafe.firebasestorage.app');
 
 const app     = express();
 const PDF_URL = 'https://s3-us-west-1.amazonaws.com/mittyportal/lunch.pdf';
 
-// config.json lives next to index.js in functions/
 const CFG_PATH = path.join(__dirname, 'config.json');
 
 function loadHolidays() {
@@ -52,7 +55,8 @@ const NOISE = [
     /Onion\s+Rings\s+\$[\d.]+/gi,
     /Mozzarella\s+Sticks\s+\$[\d.]+/gi,
     /Protein\s+Bars?\s+\$[\d.]+/gi,
-    /Fresh\s+Baked\s+Cookie[^\n]*\$[\d.]+/gi,
+    /Fresh\s+Baked\s+Cookie[^\n]*/gi,
+    /,?\s*(?:Chocolate\s+Chip|Triple\s+Chocolate|Snickerdoodle|M&M)(?:\s*,\s*(?:Chocolate\s+Chip|Triple\s+Chocolate|Snickerdoodle|M&M))*/gi,
     /Cereal\s+cup[^\n]*\$[\d.]+/gi,
     /Assorted\s+Chips[^\n]*\$[\d.]+/gi,
     /Whole\s+Fresh\s+Fruit\s+\$[\d.]+/gi,
@@ -103,6 +107,9 @@ function parseMenu(rawText) {
 
 function parseStations(chunk) {
     let cleaned = chunk;
+    cleaned = cleaned.replace(/Global Adventure(?!s)/gi, 'Global Adventures');
+    cleaned = cleaned.replace(/Pasta\s+Day/gi, 'Viva Italia');
+    cleaned = cleaned.replace(/American\s+BBQ/gi, 'Kitchen Table');
     for (const p of NOISE) cleaned = cleaned.replace(p, ' ');
 
     const STATION_RE = new RegExp(
@@ -137,12 +144,12 @@ function parseStations(chunk) {
     return items;
 }
 
-// ── Cache (1 hour TTL) ────────────────────────────────────────────────────────
-let cached     = null;
-let cacheUntil = 0;
+// ── Menu cache (1 hour TTL) ───────────────────────────────────────────────────
+let cachedMenu     = null;
+let menuCacheUntil = 0;
 
 async function getMenu() {
-    if (cached && Date.now() < cacheUntil) return cached;
+    if (cachedMenu && Date.now() < menuCacheUntil) return cachedMenu;
 
     const resp = await fetch(PDF_URL);
     if (!resp.ok) throw new Error(`PDF fetch failed: HTTP ${resp.status}`);
@@ -151,19 +158,109 @@ async function getMenu() {
     const { text } = await pdf(buf);
     const days     = parseMenu(text);
 
-    cached     = { days, fetchedAt: new Date().toISOString() };
-    cacheUntil = Date.now() + 60 * 60 * 1000;
-    return cached;
+    cachedMenu     = { days, fetchedAt: new Date().toISOString() };
+    menuCacheUntil = Date.now() + 60 * 60 * 1000;
+    return cachedMenu;
 }
 
-// ── API route ─────────────────────────────────────────────────────────────────
+// ── Photo matching ────────────────────────────────────────────────────────────
+const OUTDOOR_ITEMS = [
+    'Niman Ranch Cheeseburger',
+    'Burrito Wrap or Bowl',
+    'House Made Three Cheese',
+    'Crispy Chicken Wings',
+];
+
+function normalize(s) {
+    return s.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function findOutdoorItem(mealName) {
+    const meal = normalize(mealName);
+    return OUTDOOR_ITEMS.find(n => normalize(n).includes(meal) || meal.includes(normalize(n))) || null;
+}
+
+function findStation(mealName, menuItems) {
+    // If the name matches a station directly, always use it
+    const direct = STATIONS.find(s => normalize(s) === normalize(mealName));
+    if (direct) return direct;
+
+    // Otherwise match against this day's menu descriptions
+    const meal = normalize(mealName);
+    for (const item of menuItems) {
+        const desc = normalize(item.description || '');
+        if (desc.includes(meal) || meal.includes(desc)) return item.station;
+    }
+    return null;
+}
+
+// "Chow Mein2" → { base: "Chow Mein", index: 2 }
+// "Chow Mein"  → { base: "Chow Mein", index: 1 }
+function parsePhotoName(filename) {
+    const m = filename.match(/^(.+?)(\d{1,2})$/);
+    return m ? { base: m[1].trim(), index: parseInt(m[2]) }
+             : { base: filename.trim(), index: 1 };
+}
+
+let cachedPhotos = null, photosCacheUntil = 0;
+
+async function getPhotos(menuItems) {
+    if (cachedPhotos && Date.now() < photosCacheUntil) return cachedPhotos;
+    const [files] = await bucket.getFiles({ prefix: 'food-photos/' });
+    const images  = files.filter(f => /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name));
+
+    // Group files by base meal name
+    const groups = {};
+    for (const file of images) {
+        const filename = path.basename(file.name).replace(/\.[^.]+$/, '');
+        const { base, index } = parsePhotoName(filename);
+        if (!groups[base]) groups[base] = {};
+        await file.makePublic();
+        const encoded = file.name.split('/').map(p => encodeURIComponent(p)).join('/');
+        groups[base][index] = `https://storage.googleapis.com/monarch-cafe.firebasestorage.app/${encoded}`;
+    }
+
+    const matched = {};
+    for (const [base, indexedUrls] of Object.entries(groups)) {
+        const station = findStation(base, menuItems) || findOutdoorItem(base);
+        if (!station || matched[station]) continue;
+
+        const gallery = Object.keys(indexedUrls)
+            .map(Number)
+            .sort((a, b) => a - b)
+            .map(i => indexedUrls[i]);
+
+        matched[station] = { main: gallery[0], gallery };
+    }
+
+    cachedPhotos = matched;
+    photosCacheUntil = Date.now() + 15 * 60 * 1000;
+    return matched;
+}
+
+// ── API routes ────────────────────────────────────────────────────────────────
 app.get('/api/menu', async (req, res) => {
     try {
         res.json(await getMenu());
     } catch (err) {
         console.error('Menu error:', err.message);
-        if (cached) return res.json({ ...cached, stale: true });
+        if (cachedMenu) return res.json({ ...cachedMenu, stale: true });
         res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/photos', async (req, res) => {
+    try {
+        const menu  = await getMenu();
+        const dayName = req.query.day;
+        const day   = (dayName ? menu.days.find(d => d.name === dayName) : null) || menu.days[0];
+        const items = day?.items || [];
+        const photos = await getPhotos(items);
+        res.set('Cache-Control', 'no-store');
+        res.json(photos);
+    } catch (err) {
+        console.error('Photos error:', err.message);
+        res.status(500).json({});
     }
 });
 
