@@ -51,20 +51,14 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
 .auth-brand { margin-bottom: 32px; text-align: center; }
 .auth-brand h1 { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 600; color: var(--text); line-height: 1.2; }
 .auth-brand p { font-size: 13px; color: var(--text-muted); margin-top: 4px; letter-spacing: 0.03em; }
-.field { margin-bottom: 16px; }
-.field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-label); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
-.field input { width: 100%; padding: 10px 13px; border: 1.5px solid var(--border-soft); border-radius: 8px; background: var(--input-bg); color: var(--text); font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
-.field input:focus { border-color: #c47820; box-shadow: 0 0 0 3px rgba(196,120,32,0.1); background: var(--card); }
-.field input::placeholder { color: var(--text-faint); }
-.btn-signin { width: 100%; padding: 11px; background: #c47820; color: #fff; border: none; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 4px; transition: background 0.15s, transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.btn-signin:hover:not(:disabled) { background: #a86418; }
-.btn-signin:active:not(:disabled) { transform: scale(0.99); }
-.btn-signin:disabled { opacity: 0.55; cursor: default; }
-.auth-error { font-size: 13px; color: #b83030; margin-top: 10px; min-height: 18px; text-align: center; }
-.auth-ok    { font-size: 13px; color: #2a7048; margin-top: 8px; text-align: center; }
-.auth-foot  { text-align: right; margin-top: 12px; }
-.link-btn { background: none; border: none; color: #c47820; font-family: inherit; font-size: 12.5px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
-.link-btn:hover { color: #a86418; }
+.auth-error { font-size: 13px; color: #b83030; margin-top: 12px; min-height: 18px; text-align: center; }
+body.light .auth-error { color: #922020; }
+
+/* ── Google sign-in button ── */
+.btn-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 11px 16px; background: #fff; border: 1.5px solid #dadce0; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; color: #3c4043; cursor: pointer; transition: background 0.15s, box-shadow 0.15s, transform 0.1s; }
+.btn-google:hover:not(:disabled) { background: #f8f9fa; box-shadow: 0 1px 4px rgba(0,0,0,0.18); }
+.btn-google:active:not(:disabled) { background: #f0f0f0; transform: scale(0.99); }
+.btn-google:disabled { opacity: 0.6; cursor: default; }
 
 /* ── Generic buttons ── */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 16px; border-radius: 7px; border: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; transition: background 0.15s, transform 0.1s; }
@@ -303,41 +297,21 @@ const storage = firebase.storage();
 
 <!-- ── Login ──────────────────────────────────────────────────────────────── -->
 <div id="login-screen">
-  <div class="auth-card" id="login-box">
+  <div class="auth-card">
     <div class="auth-brand">
       <h1>Monarch Café</h1>
       <p>Admin Portal</p>
     </div>
-    <div class="field">
-      <label>Email</label>
-      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
-    </div>
-    <button class="btn-signin" id="login-btn" onclick="doLogin()">Sign In</button>
+    <button class="btn-google" id="google-btn" onclick="doGoogleSignIn()">
+      <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
+        <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      Sign in with Google
+    </button>
     <div id="login-err" class="auth-error"></div>
-    <div class="auth-foot">
-      <button class="link-btn" onclick="showForgot()">Forgot password?</button>
-    </div>
-  </div>
-
-  <div class="auth-card" id="forgot-box" style="display:none">
-    <div class="auth-brand">
-      <h1>Monarch Café</h1>
-      <p>Reset Password</p>
-    </div>
-    <div class="field">
-      <label>Email address</label>
-      <input type="email" id="reset-email" placeholder="you@example.com">
-    </div>
-    <button class="btn-signin" onclick="doResetPassword()">Send Reset Email</button>
-    <div id="reset-msg" class="auth-ok" style="display:none"></div>
-    <div id="reset-err" class="auth-error"></div>
-    <div style="text-align:center;margin-top:14px">
-      <button class="link-btn" onclick="showLogin()">← Back to sign in</button>
-    </div>
   </div>
 </div>
 
@@ -354,7 +328,6 @@ const storage = firebase.storage();
         <span class="theme-label" id="theme-label">Dark</span>
         <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode"></button>
       </div>
-      <button class="hdr-btn" onclick="openChangePass()">Change Password</button>
       <button class="hdr-btn" onclick="doLogout()">Sign out</button>
     </div>
   </header>
@@ -479,26 +452,6 @@ const storage = firebase.storage();
   </div>
 </div>
 
-<!-- ── Change Password modal ─────────────────────────────────────────────── -->
-<div class="modal-overlay" id="change-pass-modal">
-  <div class="modal">
-    <h2>Change Password</h2>
-    <div class="field">
-      <label>New Password</label>
-      <input type="password" id="new-pass1" placeholder="At least 8 characters">
-    </div>
-    <div class="field">
-      <label>Confirm New Password</label>
-      <input type="password" id="new-pass2" placeholder="Repeat password">
-    </div>
-    <div id="change-pass-err" class="auth-error"></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeChangePass()">Cancel</button>
-      <button class="btn btn-primary" onclick="doChangePass()">Update Password</button>
-    </div>
-  </div>
-</div>
-
 <script>
 const API = location.hostname === 'localhost'
   ? 'http://127.0.0.1:5001/monarch-cafe/us-central1/api'
@@ -521,8 +474,16 @@ function toggleTheme() {
 updateThemeLabel();
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
+const ALLOWED_EMAILS = new Set(['iamkylechristman@gmail.com', 'vsiddarth1010@gmail.com']);
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
 auth.onAuthStateChanged(user => {
   if (user) {
+    if (!ALLOWED_EMAILS.has(user.email)) {
+      auth.signOut();
+      document.getElementById('login-err').textContent = user.email + ' is not authorized to access this admin panel.';
+      return;
+    }
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('shell').style.display = 'flex';
     document.getElementById('header-email').textContent = user.email;
@@ -530,110 +491,32 @@ auth.onAuthStateChanged(user => {
   } else {
     document.getElementById('shell').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
-    showLogin();
+    const btn = document.getElementById('google-btn');
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/><path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg> Sign in with Google`;
   }
 });
 
-function showLogin() {
-  document.getElementById('login-box').style.display = '';
-  document.getElementById('forgot-box').style.display = 'none';
-}
-function showForgot() {
-  document.getElementById('login-box').style.display = 'none';
-  document.getElementById('forgot-box').style.display = '';
-  const email = document.getElementById('login-email').value;
-  if (email) document.getElementById('reset-email').value = email;
-}
-
-async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const pass  = document.getElementById('login-pass').value;
-  const btn   = document.getElementById('login-btn');
-  const err   = document.getElementById('login-err');
+async function doGoogleSignIn() {
+  const btn = document.getElementById('google-btn');
+  const err = document.getElementById('login-err');
   err.textContent = '';
-  if (!email) { err.textContent = 'Please enter your email.'; return; }
-  if (!pass)  { err.textContent = 'Please enter your password.'; return; }
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Signing in…';
+  btn.innerHTML = '<span class="spinner" style="border-color:rgba(0,0,0,.15);border-top-color:#555"></span> Signing in…';
   try {
-    await auth.signInWithEmailAndPassword(email, pass);
+    await auth.signInWithPopup(googleProvider);
   } catch (e) {
-    err.textContent = friendlyAuthError(e.code);
+    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+      err.textContent = e.code === 'auth/network-request-failed'
+        ? 'Network error — check your connection.'
+        : `Sign-in failed (${e.code}).`;
+    }
     btn.disabled = false;
-    btn.textContent = 'Sign In';
-  }
-}
-
-async function doResetPassword() {
-  const email = document.getElementById('reset-email').value.trim();
-  const msgEl = document.getElementById('reset-msg');
-  const errEl = document.getElementById('reset-err');
-  msgEl.style.display = 'none';
-  errEl.textContent = '';
-  if (!email) { errEl.textContent = 'Enter your email address.'; return; }
-  try {
-    await auth.sendPasswordResetEmail(email);
-    msgEl.textContent = 'Reset email sent — check your inbox.';
-    msgEl.style.display = 'block';
-  } catch (e) {
-    errEl.textContent = friendlyAuthError(e.code);
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/><path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg> Sign in with Google`;
   }
 }
 
 function doLogout() { auth.signOut(); }
-
-document.getElementById('login-pass').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doLogin();
-});
-document.getElementById('login-email').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('login-pass').focus();
-});
-
-function openChangePass() {
-  document.getElementById('new-pass1').value = '';
-  document.getElementById('new-pass2').value = '';
-  document.getElementById('change-pass-err').textContent = '';
-  document.getElementById('change-pass-modal').classList.add('open');
-}
-function closeChangePass() {
-  document.getElementById('change-pass-modal').classList.remove('open');
-}
-async function doChangePass() {
-  const p1  = document.getElementById('new-pass1').value;
-  const p2  = document.getElementById('new-pass2').value;
-  const err = document.getElementById('change-pass-err');
-  err.textContent = '';
-  if (p1.length < 8) { err.textContent = 'Password must be at least 8 characters.'; return; }
-  if (p1 !== p2)     { err.textContent = 'Passwords do not match.'; return; }
-  try {
-    await auth.currentUser.updatePassword(p1);
-    closeChangePass();
-    alert('Password updated successfully.');
-  } catch (e) {
-    if (e.code === 'auth/requires-recent-login') {
-      err.textContent = 'Please sign out and sign back in before changing your password.';
-    } else {
-      err.textContent = friendlyAuthError(e.code);
-    }
-  }
-}
-document.getElementById('change-pass-modal').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeChangePass();
-});
-
-function friendlyAuthError(code) {
-  const map = {
-    'auth/user-not-found':         'No account found with that email.',
-    'auth/wrong-password':         'Incorrect password.',
-    'auth/invalid-email':          'Invalid email address.',
-    'auth/invalid-credential':     'Incorrect email or password.',
-    'auth/too-many-requests':      'Too many attempts — try again later.',
-    'auth/network-request-failed': 'Network error — check your connection.',
-    'auth/user-disabled':          'This account has been disabled.',
-    'auth/operation-not-allowed':  'Email/password sign-in is not enabled.',
-  };
-  return map[code] || `Sign-in failed (${code || 'unknown'}). Try again.`;
-}
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 function switchTab(name) {
