@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monarch Café · Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:          #0f0e0c;
+  --bg2:         #161412;
+  --card:        #1a1714;
+  --border:      #2d2a24;
+  --border-soft: #3a3530;
+  --border-xs:   #252220;
+  --text:        #f0e8d8;
+  --text-body:   #d0c4b4;
+  --text-label:  #8a7e72;
+  --text-muted:  #7a6e61;
+  --text-faint:  #4a4035;
+  --input-bg:    #141210;
+  --scrollbar:   #2d2a24;
+  --drop-hover:  rgba(196,120,32,0.06);
+}
+body.light {
+  --bg:          #f2ede6;
+  --bg2:         #faf8f5;
+  --card:        #fff;
+  --border:      #e2d9ce;
+  --border-soft: #ddd5c8;
+  --border-xs:   #f0ebe3;
+  --text:        #1c1710;
+  --text-body:   #4a3e32;
+  --text-label:  #7a6e62;
+  --text-muted:  #9a8c7e;
+  --text-faint:  #c4b8a8;
+  --input-bg:    #faf8f5;
+  --scrollbar:   #d4c9bb;
+  --drop-hover:  #fef9f2;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+
+/* ── Login ── */
+#login-screen { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+.auth-card { width: 380px; max-width: calc(100vw - 32px); background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 48px 40px 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+.auth-brand { margin-bottom: 32px; text-align: center; }
+.auth-brand h1 { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 600; color: var(--text); line-height: 1.2; }
+.auth-brand p { font-size: 13px; color: var(--text-muted); margin-top: 4px; letter-spacing: 0.03em; }
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-label); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+.field input { width: 100%; padding: 10px 13px; border: 1.5px solid var(--border-soft); border-radius: 8px; background: var(--input-bg); color: var(--text); font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+.field input:focus { border-color: #c47820; box-shadow: 0 0 0 3px rgba(196,120,32,0.1); background: var(--card); }
+.field input::placeholder { color: var(--text-faint); }
+.btn-signin { width: 100%; padding: 11px; background: #c47820; color: #fff; border: none; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 4px; transition: background 0.15s, transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-signin:hover:not(:disabled) { background: #a86418; }
+.btn-signin:active:not(:disabled) { transform: scale(0.99); }
+.btn-signin:disabled { opacity: 0.55; cursor: default; }
+.auth-error { font-size: 13px; color: #b83030; margin-top: 10px; min-height: 18px; text-align: center; }
+.auth-ok    { font-size: 13px; color: #2a7048; margin-top: 8px; text-align: center; }
+.auth-foot  { text-align: right; margin-top: 12px; }
+.link-btn { background: none; border: none; color: #c47820; font-family: inherit; font-size: 12.5px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.link-btn:hover { color: #a86418; }
+
+/* ── Generic buttons ── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 16px; border-radius: 7px; border: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; transition: background 0.15s, transform 0.1s; }
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn-primary { background: #c47820; color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #a86418; }
+.btn-ghost { background: var(--card); color: var(--text-body); border: 1.5px solid var(--border-soft); }
+.btn-ghost:hover:not(:disabled) { background: var(--bg2); border-color: var(--text-faint); }
+.btn-danger { background: rgba(184,48,48,0.12); color: #e05050; border: 1.5px solid rgba(184,48,48,0.3); }
+.btn-danger:hover:not(:disabled) { background: rgba(184,48,48,0.2); }
+body.light .btn-danger { background: #fef2f2; color: #b83030; border-color: #f5c2c2; }
+body.light .btn-danger:hover:not(:disabled) { background: #fde8e8; }
+.btn-sm { padding: 5px 11px; font-size: 12px; border-radius: 6px; }
+.btn-full { width: 100%; }
+
+/* ── Shell ── */
+#shell { display: none; flex-direction: column; height: 100vh; overflow: hidden; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; background: var(--card); border-bottom: 1.5px solid var(--border); flex-shrink: 0; }
+.header-left { display: flex; align-items: baseline; gap: 10px; }
+.header-left h1 { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 600; color: var(--text); }
+.header-left .admin-chip { font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: #c47820; background: rgba(196,120,32,0.12); border: 1px solid rgba(196,120,32,0.25); padding: 2px 8px; border-radius: 4px; }
+body.light .header-left .admin-chip { background: #fef3e2; border-color: #f5d898; }
+.header-user { font-size: 12.5px; color: var(--text-muted); padding: 4px 10px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; margin-left: 6px; }
+.header-actions { display: flex; gap: 6px; align-items: center; }
+.hdr-btn { padding: 6px 13px; border-radius: 7px; border: 1.5px solid var(--border); background: transparent; color: var(--text-muted); font-family: inherit; font-size: 12.5px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.hdr-btn:hover { background: var(--bg2); color: var(--text); }
+
+/* ── Theme toggle ── */
+.theme-wrap { display: flex; align-items: center; gap: 7px; }
+.theme-label { font-size: 11px; color: var(--text-faint); }
+.theme-toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--border-soft); border: none; cursor: pointer; position: relative; flex-shrink: 0; padding: 0; transition: background 0.2s; }
+.theme-toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-muted); transition: left 0.2s, background 0.2s; }
+body.light .theme-toggle { background: #c47820; }
+body.light .theme-toggle::after { left: 19px; background: #fff; }
+
+nav { display: flex; padding: 0 18px; background: var(--card); border-bottom: 1.5px solid var(--border); flex-shrink: 0; }
+.nav-tab { padding: 11px 18px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; user-select: none; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; }
+.nav-tab:hover { color: var(--text-body); }
+.nav-tab.active { color: #c47820; border-bottom-color: #c47820; }
+#content { flex: 1; overflow-y: auto; padding: 28px; background: var(--bg); }
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── Section title ── */
+.section-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 20px; }
+
+/* ── Card ── */
+.card { background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+.muted { color: var(--text-muted); }
+.small { font-size: 12px; }
+
+/* ── Badge ── */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.badge-green { background: rgba(42,112,72,0.15); color: #4aad78; }
+.badge-red   { background: rgba(184,48,48,0.15); color: #e05050; }
+.badge-gold  { background: rgba(196,120,32,0.15); color: #c47820; }
+body.light .badge-green { background: #edf7f2; color: #2a7048; }
+body.light .badge-red   { background: #fef2f2; color: #b83030; }
+body.light .badge-gold  { background: #fef3e2; color: #a86418; }
+.stars { color: #c47820; letter-spacing: 1px; }
+
+/* ── Menu tab ── */
+.day-header { display: flex; align-items: center; gap: 12px; padding: 13px 18px; cursor: pointer; user-select: none; transition: background 0.12s; }
+.day-header:hover { background: var(--bg2); }
+.chevron { color: var(--text-faint); font-size: 10px; transition: transform 0.2s; flex-shrink: 0; }
+.day-header.open .chevron { transform: rotate(90deg); }
+.day-items { display: none; border-top: 1.5px solid var(--border-xs); padding: 4px 18px 14px; }
+.day-items.open { display: block; }
+.menu-item-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-xs); }
+.menu-item-row:last-child { border-bottom: none; }
+.menu-item-desc-wrap { flex: 1; }
+.item-station { font-size: 10.5px; font-weight: 600; color: #c47820; text-transform: uppercase; letter-spacing: 0.06em; }
+.item-desc-text { font-size: 13px; color: var(--text-body); margin-top: 2px; }
+.item-price { font-size: 12px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+.item-desc-input { display: none; width: 100%; padding: 5px 9px; margin-top: 4px; border: 1.5px solid #c47820; border-radius: 6px; background: rgba(196,120,32,0.07); color: var(--text); font-family: inherit; font-size: 13px; outline: none; }
+body.light .item-desc-input { background: #fef9f2; }
+.edit-item-btn { background: none; border: 1.5px solid var(--border-soft); border-radius: 5px; color: var(--text-muted); cursor: pointer; font-family: inherit; font-size: 11px; padding: 3px 8px; transition: color 0.15s, border-color 0.15s; }
+.edit-item-btn:hover { color: var(--text-body); border-color: var(--text-faint); }
+.edit-item-btn.saving { color: #c47820; border-color: #c47820; }
+
+/* ── Filter row ── */
+.filter-row { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+.filter-row input, .filter-row select { padding: 8px 12px; background: var(--card); border: 1.5px solid var(--border-soft); border-radius: 7px; color: var(--text); font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.15s; }
+.filter-row input:focus, .filter-row select:focus { border-color: #c47820; }
+
+/* ── Table ── */
+.table-wrap { background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead tr { background: var(--bg2); }
+th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1.5px solid var(--border-soft); }
+td { padding: 11px 16px; border-bottom: 1px solid var(--border-xs); vertical-align: top; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg2); }
+.empty-row td { color: var(--text-muted); text-align: center; padding: 32px; font-style: italic; }
+
+/* ── Photos tab ── */
+.photos-wrap { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .photos-wrap { grid-template-columns: 1fr; } }
+.upload-box { background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 20px; }
+.upload-box-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.upload-box-hint { font-size: 12.5px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.6; }
+.drop-zone { border: 2px dashed var(--border-soft); border-radius: 9px; padding: 28px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 12px; }
+.drop-zone:hover, .drop-zone.drag-over { border-color: #c47820; background: var(--drop-hover); }
+.drop-zone input[type=file] { display: none; }
+.drop-zone-icon { font-size: 26px; margin-bottom: 8px; }
+.drop-zone-text { font-size: 13px; color: var(--text-muted); }
+.drop-zone-text span { color: #c47820; text-decoration: underline; cursor: pointer; }
+.upload-queue { list-style: none; }
+.upload-queue li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--bg2); border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 6px; font-size: 13px; }
+.upload-queue li .q-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-body); }
+.upload-queue li .q-name-input { flex: 1; background: var(--card); border: 1.5px solid var(--border-soft); border-radius: 5px; color: var(--text); font-family: inherit; font-size: 12.5px; padding: 3px 7px; outline: none; transition: border-color 0.15s; min-width: 0; }
+.upload-queue li .q-name-input:focus { border-color: #c47820; }
+.upload-queue li .q-status { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+.upload-queue li .q-status.done  { color: #4aad78; font-weight: 500; }
+.upload-queue li .q-status.error { color: #e05050; }
+.upload-queue li button { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 18px; line-height: 1; }
+.upload-queue li button:hover { color: #b83030; }
+.progress-bar-wrap { width: 60px; height: 3px; background: var(--border-soft); border-radius: 2px; flex-shrink: 0; }
+.progress-bar { height: 100%; background: #c47820; border-radius: 2px; transition: width 0.2s; }
+
+/* ── Gallery ── */
+.gallery-pane-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.gallery-pane-title { font-size: 14px; font-weight: 600; color: var(--text); }
+#photo-count { font-size: 13px; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.gallery-card { background: var(--card); border: 1.5px solid var(--border); border-radius: 9px; overflow: hidden; cursor: grab; transition: border-color 0.15s, box-shadow 0.15s; position: relative; user-select: none; }
+.gallery-card:hover { border-color: var(--text-faint); box-shadow: 0 3px 14px rgba(0,0,0,0.25); }
+.gallery-card:active { cursor: grabbing; }
+.gallery-card.dragging { opacity: 0.4; border-color: #c47820; box-shadow: 0 0 0 2px #c47820; }
+.gallery-card img { width: 100%; height: 95px; object-fit: cover; display: block; pointer-events: none; }
+.gallery-card-body { padding: 7px 9px 8px; }
+.gallery-card-name { font-size: 11.5px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gallery-card-name-input { display: none; width: 100%; padding: 3px 6px; margin-top: 2px; border: 1.5px solid #c47820; border-radius: 5px; font-family: inherit; font-size: 11.5px; color: var(--text); background: var(--input-bg); outline: none; }
+.gallery-card-match { font-size: 11px; color: #4aad78; margin-top: 2px; font-weight: 500; display: flex; align-items: center; gap: 3px; }
+.gallery-card-match.unmatched { color: #b07040; font-weight: 400; font-style: italic; }
+.clear-match-btn { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 13px; line-height: 1; padding: 0; flex-shrink: 0; }
+.clear-match-btn:hover { color: #e05050; }
+.gallery-card-delete { display: none; position: absolute; top: 5px; right: 5px; background: rgba(20,18,16,0.88); border: 1px solid rgba(184,48,48,0.4); border-radius: 5px; color: #e05050; font-size: 11px; padding: 2px 6px; cursor: pointer; line-height: 1.4; backdrop-filter: blur(2px); }
+body.light .gallery-card-delete { background: rgba(255,255,255,0.9); border-color: #f5c2c2; color: #b83030; }
+.gallery-card-rename { display: none; position: absolute; top: 5px; right: 40px; background: rgba(20,18,16,0.88); border: 1px solid var(--border-soft); border-radius: 5px; color: var(--text-muted); font-size: 11px; padding: 2px 6px; cursor: pointer; line-height: 1.4; backdrop-filter: blur(2px); }
+body.light .gallery-card-rename { background: rgba(255,255,255,0.9); }
+.gallery-card:hover .gallery-card-delete,
+.gallery-card:hover .gallery-card-rename { display: block; }
+.gallery-card.renaming .gallery-card-delete,
+.gallery-card.renaming .gallery-card-rename { display: none; }
+.match-pill { position: absolute; bottom: 6px; left: 6px; background: rgba(14,13,11,0.82); backdrop-filter: blur(4px); border: 1px solid rgba(80,70,50,0.5); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 600; color: #4aad78; pointer-events: none; }
+body.light .match-pill { background: rgba(255,255,255,0.92); border-color: rgba(200,190,170,0.5); color: #2a7048; }
+.match-pill.unmatched { color: #b07040; }
+
+/* ── Assignment panel ── */
+.assign-pane { position: sticky; top: 0; }
+.assign-pane-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.assign-pane-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.day-select { width: 100%; margin-bottom: 12px; padding: 8px 11px; background: var(--card); border: 1.5px solid var(--border-soft); border-radius: 7px; color: var(--text); font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: border-color 0.15s; }
+.day-select:focus { border-color: #c47820; }
+.assign-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5; }
+.section-label { font-size: 10.5px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em; margin: 16px 0 8px; }
+.station-target { background: var(--bg2); border: 1.5px dashed var(--border-soft); border-radius: 9px; padding: 9px 11px; margin-bottom: 7px; min-height: 54px; transition: border-color 0.15s, background 0.15s; position: relative; }
+.station-target.has-photo { border-style: solid; border-color: #1a5038; background: rgba(26,80,56,0.15); }
+body.light .station-target.has-photo { border-color: #a3d4b8; background: #f4fbf7; }
+.station-target.drag-over { border-color: #c47820 !important; background: var(--drop-hover) !important; border-style: solid; }
+.station-target-name { font-size: 12.5px; font-weight: 500; color: var(--text); padding-right: 46px; }
+.station-target-status { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+.station-target.has-photo .station-target-status { color: #4aad78; font-weight: 500; }
+body.light .station-target.has-photo .station-target-status { color: #2a7048; }
+.station-target-thumb { position: absolute; right: 9px; top: 9px; width: 34px; height: 34px; object-fit: cover; border-radius: 5px; border: 1px solid var(--border); }
+.unassign-btn { position: absolute; right: 47px; top: 9px; background: var(--card); border: 1px solid var(--border); border-radius: 4px; color: var(--text-faint); font-size: 10px; padding: 3px 5px; cursor: pointer; display: none; transition: background 0.12s, color 0.12s; }
+.station-target.has-photo:hover .unassign-btn { display: block; }
+.unassign-btn:hover { background: rgba(184,48,48,0.12); color: #e05050; border-color: rgba(184,48,48,0.3); }
+
+/* ── Config ── */
+.config-section { max-width: 500px; margin-bottom: 36px; }
+.config-section-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.config-section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.6; }
+.holiday-list { list-style: none; margin-bottom: 14px; }
+.holiday-list li { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; background: var(--card); border: 1.5px solid var(--border); border-radius: 8px; margin-bottom: 6px; font-size: 13px; color: var(--text-body); }
+.holiday-list li button { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 18px; line-height: 1; }
+.holiday-list li button:hover { color: #b83030; }
+.add-holiday-row { display: flex; gap: 8px; }
+.add-holiday-row input { flex: 1; padding: 9px 12px; background: var(--card); border: 1.5px solid var(--border-soft); border-radius: 7px; color: var(--text); font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.15s; }
+.add-holiday-row input:focus { border-color: #c47820; }
+.cache-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ── Flash ── */
+.flash-msg { font-size: 13px; padding: 10px 14px; border-radius: 7px; margin-top: 10px; display: none; }
+.flash-msg.ok  { background: rgba(42,112,72,0.12); color: #4aad78; border: 1px solid rgba(42,112,72,0.3); }
+.flash-msg.err { background: rgba(184,48,48,0.12); color: #e05050; border: 1px solid rgba(184,48,48,0.3); }
+body.light .flash-msg.ok  { background: #edf7f2; color: #2a7048; border-color: #a3d4b8; }
+body.light .flash-msg.err { background: #fef2f2; color: #b83030; border-color: #f5c2c2; }
+
+/* ── Modal ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--card); border: 1.5px solid var(--border); border-radius: 12px; padding: 32px 36px; width: 380px; max-width: 100%; box-shadow: 0 12px 48px rgba(0,0,0,0.45); }
+.modal h2 { font-family: 'Playfair Display', serif; font-size: 19px; color: var(--text); margin-bottom: 20px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+/* ── Spinner ── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: spin 0.65s linear infinite; flex-shrink: 0; }
+
+/* ── Touch / iPad ── */
+@media (hover: none) {
+  .gallery-card-delete,
+  .gallery-card-rename { display: block; }
+  .gallery-card.renaming .gallery-card-delete,
+  .gallery-card.renaming .gallery-card-rename { display: none; }
+  .station-target { cursor: pointer; }
+}
+.gallery-card.selected { border-color: #c47820 !important; box-shadow: 0 0 0 2px rgba(196,120,32,0.55) !important; }
+.tap-hint { font-size: 12px; color: #c47820; background: rgba(196,120,32,0.08); border: 1px solid rgba(196,120,32,0.22); border-radius: 6px; padding: 7px 10px; margin-bottom: 10px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<script>if(localStorage.getItem('monarchColorMode')==='light')document.body.classList.add('light');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+<script>
+try {
+  firebase.initializeApp({
+    apiKey:            "AIzaSyACLqhIGei2ax3-VzvpYqQ4K5OvuEaauaQ",
+    authDomain:        "monarch-cafe.firebaseapp.com",
+    projectId:         "monarch-cafe",
+    storageBucket:     "monarch-cafe.firebasestorage.app",
+    messagingSenderId: "714842857141",
+    appId:             "1:714842857141:web:2ef4b395da67badbbd68fc"
+  });
+} catch(e) { /* already initialized */ }
+const auth    = firebase.auth();
+const storage = firebase.storage();
+</script>
+
+<!-- ── Login ──────────────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="auth-card" id="login-box">
+    <div class="auth-brand">
+      <h1>Monarch Café</h1>
+      <p>Admin Portal</p>
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-signin" id="login-btn" onclick="doLogin()">Sign In</button>
+    <div id="login-err" class="auth-error"></div>
+    <div class="auth-foot">
+      <button class="link-btn" onclick="showForgot()">Forgot password?</button>
+    </div>
+  </div>
+
+  <div class="auth-card" id="forgot-box" style="display:none">
+    <div class="auth-brand">
+      <h1>Monarch Café</h1>
+      <p>Reset Password</p>
+    </div>
+    <div class="field">
+      <label>Email address</label>
+      <input type="email" id="reset-email" placeholder="you@example.com">
+    </div>
+    <button class="btn-signin" onclick="doResetPassword()">Send Reset Email</button>
+    <div id="reset-msg" class="auth-ok" style="display:none"></div>
+    <div id="reset-err" class="auth-error"></div>
+    <div style="text-align:center;margin-top:14px">
+      <button class="link-btn" onclick="showLogin()">← Back to sign in</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Shell ──────────────────────────────────────────────────────────────── -->
+<div id="shell">
+  <header>
+    <div class="header-left">
+      <h1>Monarch Café</h1>
+      <span class="admin-chip">Admin</span>
+      <span class="header-user" id="header-email"></span>
+    </div>
+    <div class="header-actions">
+      <div class="theme-wrap">
+        <span class="theme-label" id="theme-label">Dark</span>
+        <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode"></button>
+      </div>
+      <button class="hdr-btn" onclick="openChangePass()">Change Password</button>
+      <button class="hdr-btn" onclick="doLogout()">Sign out</button>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-tab active" data-tab="menu"    onclick="switchTab('menu')">Menu</div>
+    <div class="nav-tab"        data-tab="photos"  onclick="switchTab('photos')">Photos</div>
+    <div class="nav-tab"        data-tab="reviews" onclick="switchTab('reviews')">Reviews</div>
+    <div class="nav-tab"        data-tab="config"  onclick="switchTab('config')">Config</div>
+  </nav>
+
+  <div id="content">
+
+    <!-- ── Menu ── -->
+    <div id="tab-menu" class="panel active">
+      <div class="section-title">Weekly Menu</div>
+      <div id="menu-body"><p class="muted small">Loading…</p></div>
+    </div>
+
+    <!-- ── Photos ── -->
+    <div id="tab-photos" class="panel">
+      <div class="section-title">Photos</div>
+
+      <div class="upload-box">
+        <div class="upload-box-title">Upload Photos</div>
+        <div class="upload-box-hint">
+          Name files after the dish — <strong>Pasta Bar.jpg</strong>, <strong>Pasta Bar2.jpg</strong> for a gallery.<br>
+          HEIC files convert automatically.
+        </div>
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <input type="file" id="file-input" accept="image/*,.heic,.heif" multiple onchange="handleFiles(this.files)">
+          <div class="drop-zone-icon">📷</div>
+          <div class="drop-zone-text">Drop photos here or <span>browse files</span></div>
+        </div>
+        <ul class="upload-queue" id="upload-queue"></ul>
+        <button class="btn btn-primary" id="upload-all-btn" style="display:none;margin-top:8px" onclick="startUploads()">Upload Photos</button>
+      </div>
+
+      <div class="photos-wrap">
+        <!-- Gallery -->
+        <div>
+          <div class="gallery-pane-header">
+            <div class="gallery-pane-title">All Photos <span id="photo-count"></span></div>
+            <button class="btn btn-ghost btn-sm" onclick="reloadPhotosTab()">↻ Refresh</button>
+          </div>
+          <div class="gallery-grid" id="photo-gallery">
+            <p class="muted small" style="grid-column:1/-1">Loading…</p>
+          </div>
+        </div>
+
+        <!-- Assignment panel -->
+        <div class="assign-pane">
+          <div class="assign-pane-header">
+            <div class="assign-pane-title">Assign to Dish</div>
+          </div>
+          <select id="day-filter" class="day-select" onchange="applyDayFilter()">
+          </select>
+          <p class="assign-hint">Drag a photo to a slot to assign it. On iPad, tap a photo to select it, then tap a slot.</p>
+          <div id="tap-assign-hint" class="tap-hint" style="display:none"></div>
+          <div id="station-targets"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Reviews ── -->
+    <div id="tab-reviews" class="panel">
+      <div class="section-title">Reviews</div>
+      <div class="filter-row">
+        <input type="text" id="review-search" placeholder="Search…" oninput="filterReviews()">
+        <select id="review-rating" onchange="filterReviews()">
+          <option value="">All ratings</option>
+          <option value="5">★ 5</option>
+          <option value="4">★ 4</option>
+          <option value="3">★ 3</option>
+          <option value="2">★ 2</option>
+          <option value="1">★ 1</option>
+        </select>
+        <span id="review-count" class="muted small"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Station</th><th>Item</th>
+              <th>Rating</th><th>Comment</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="reviews-body">
+            <tr class="empty-row"><td colspan="6">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Config ── -->
+    <div id="tab-config" class="panel">
+      <div class="section-title">Configuration</div>
+
+      <div class="config-section">
+        <div class="config-section-title">School Holidays</div>
+        <div class="config-section-desc">Days marked as holidays show "No Service" instead of a menu. Use YYYY-MM-DD format.</div>
+        <ul class="holiday-list" id="holiday-list"></ul>
+        <div class="add-holiday-row">
+          <input type="text" id="new-holiday" placeholder="2025-11-27">
+          <button class="btn btn-primary" onclick="addHoliday()">Add</button>
+        </div>
+        <button class="btn btn-ghost" style="margin-top:10px" onclick="saveHolidays()">Save Holidays</button>
+        <div id="holiday-msg" class="flash-msg"></div>
+      </div>
+
+      <div class="config-section">
+        <div class="config-section-title">Cache Control</div>
+        <div class="config-section-desc">Force the server to re-fetch the menu PDF or re-scan the photo library immediately.</div>
+        <div class="cache-row">
+          <button class="btn btn-ghost" onclick="refreshCache('menu')">Refresh Menu Cache</button>
+          <button class="btn btn-ghost" onclick="refreshCache('photos')">Refresh Photo Cache</button>
+        </div>
+        <div id="cache-msg" class="flash-msg"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Change Password modal ─────────────────────────────────────────────── -->
+<div class="modal-overlay" id="change-pass-modal">
+  <div class="modal">
+    <h2>Change Password</h2>
+    <div class="field">
+      <label>New Password</label>
+      <input type="password" id="new-pass1" placeholder="At least 8 characters">
+    </div>
+    <div class="field">
+      <label>Confirm New Password</label>
+      <input type="password" id="new-pass2" placeholder="Repeat password">
+    </div>
+    <div id="change-pass-err" class="auth-error"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeChangePass()">Cancel</button>
+      <button class="btn btn-primary" onclick="doChangePass()">Update Password</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = location.hostname === 'localhost'
+  ? 'http://127.0.0.1:5001/monarch-cafe/us-central1/api'
+  : '/api';
+
+let allReviews = [];
+let holidays   = [];
+const loadedTabs = {};
+
+// ── Theme ──────────────────────────────────────────────────────────────────────
+function updateThemeLabel() {
+  const lbl = document.getElementById('theme-label');
+  if (lbl) lbl.textContent = document.body.classList.contains('light') ? 'Light' : 'Dark';
+}
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  localStorage.setItem('monarchColorMode', isLight ? 'light' : 'dark');
+  updateThemeLabel();
+}
+updateThemeLabel();
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('shell').style.display = 'flex';
+    document.getElementById('header-email').textContent = user.email;
+    if (!loadedTabs.menu) loadTab('menu');
+  } else {
+    document.getElementById('shell').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    showLogin();
+  }
+});
+
+function showLogin() {
+  document.getElementById('login-box').style.display = '';
+  document.getElementById('forgot-box').style.display = 'none';
+}
+function showForgot() {
+  document.getElementById('login-box').style.display = 'none';
+  document.getElementById('forgot-box').style.display = '';
+  const email = document.getElementById('login-email').value;
+  if (email) document.getElementById('reset-email').value = email;
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const btn   = document.getElementById('login-btn');
+  const err   = document.getElementById('login-err');
+  err.textContent = '';
+  if (!email) { err.textContent = 'Please enter your email.'; return; }
+  if (!pass)  { err.textContent = 'Please enter your password.'; return; }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Signing in…';
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch (e) {
+    err.textContent = friendlyAuthError(e.code);
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+}
+
+async function doResetPassword() {
+  const email = document.getElementById('reset-email').value.trim();
+  const msgEl = document.getElementById('reset-msg');
+  const errEl = document.getElementById('reset-err');
+  msgEl.style.display = 'none';
+  errEl.textContent = '';
+  if (!email) { errEl.textContent = 'Enter your email address.'; return; }
+  try {
+    await auth.sendPasswordResetEmail(email);
+    msgEl.textContent = 'Reset email sent — check your inbox.';
+    msgEl.style.display = 'block';
+  } catch (e) {
+    errEl.textContent = friendlyAuthError(e.code);
+  }
+}
+
+function doLogout() { auth.signOut(); }
+
+document.getElementById('login-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+document.getElementById('login-email').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('login-pass').focus();
+});
+
+function openChangePass() {
+  document.getElementById('new-pass1').value = '';
+  document.getElementById('new-pass2').value = '';
+  document.getElementById('change-pass-err').textContent = '';
+  document.getElementById('change-pass-modal').classList.add('open');
+}
+function closeChangePass() {
+  document.getElementById('change-pass-modal').classList.remove('open');
+}
+async function doChangePass() {
+  const p1  = document.getElementById('new-pass1').value;
+  const p2  = document.getElementById('new-pass2').value;
+  const err = document.getElementById('change-pass-err');
+  err.textContent = '';
+  if (p1.length < 8) { err.textContent = 'Password must be at least 8 characters.'; return; }
+  if (p1 !== p2)     { err.textContent = 'Passwords do not match.'; return; }
+  try {
+    await auth.currentUser.updatePassword(p1);
+    closeChangePass();
+    alert('Password updated successfully.');
+  } catch (e) {
+    if (e.code === 'auth/requires-recent-login') {
+      err.textContent = 'Please sign out and sign back in before changing your password.';
+    } else {
+      err.textContent = friendlyAuthError(e.code);
+    }
+  }
+}
+document.getElementById('change-pass-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeChangePass();
+});
+
+function friendlyAuthError(code) {
+  const map = {
+    'auth/user-not-found':         'No account found with that email.',
+    'auth/wrong-password':         'Incorrect password.',
+    'auth/invalid-email':          'Invalid email address.',
+    'auth/invalid-credential':     'Incorrect email or password.',
+    'auth/too-many-requests':      'Too many attempts — try again later.',
+    'auth/network-request-failed': 'Network error — check your connection.',
+    'auth/user-disabled':          'This account has been disabled.',
+    'auth/operation-not-allowed':  'Email/password sign-in is not enabled.',
+  };
+  return map[code] || `Sign-in failed (${code || 'unknown'}). Try again.`;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  if (!loadedTabs[name]) loadTab(name);
+}
+function loadTab(name) {
+  loadedTabs[name] = true;
+  if (name === 'menu')    loadMenuTab();
+  if (name === 'photos')  loadPhotosTab();
+  if (name === 'reviews') loadReviewsTab();
+  if (name === 'config')  loadConfigTab();
+}
+
+async function apiFetch(path, opts = {}) {
+  const token   = await auth.currentUser.getIdToken();
+  const headers = { 'Authorization': 'Bearer ' + token, ...(opts.headers || {}) };
+  const res     = await fetch(API + path, { ...opts, headers });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// ── Menu tab ──────────────────────────────────────────────────────────────────
+let menuOverrides = {};
+
+async function loadMenuTab() {
+  const body = document.getElementById('menu-body');
+  try {
+    const [data, overrides] = await Promise.all([
+      apiFetch('/admin/menu'),
+      apiFetch('/admin/menu/overrides'),
+    ]);
+    menuOverrides = overrides;
+    if (!data.days?.length) { body.innerHTML = '<p class="muted small">No menu data.</p>'; return; }
+    body.innerHTML = '';
+    for (const day of data.days) {
+      const wrap = document.createElement('div');
+      wrap.className = 'card';
+      const hdr = document.createElement('div');
+      hdr.className = 'day-header';
+      const holiday = day.holiday ? ' <span class="badge badge-red">Holiday</span>' : '';
+      hdr.innerHTML = `<span class="chevron">▶</span><span style="font-family:'Playfair Display',serif;font-size:15px;color:#1c1710">${day.name} · ${day.date}</span>${holiday}<span class="badge badge-gold" style="margin-left:auto">${day.items.length} items</span>`;
+      const list = document.createElement('div');
+      list.className = 'day-items';
+      hdr.onclick = () => { hdr.classList.toggle('open'); list.classList.toggle('open'); };
+      if (day.holiday) {
+        list.innerHTML = '<p class="muted small" style="padding:10px 0">No service — school holiday</p>';
+      } else {
+        for (const item of day.items) {
+          const row = document.createElement('div');
+          row.className = 'menu-item-row';
+          const itemKey = item.station + '||' + item.description;
+          const isOverridden = !!menuOverrides[itemKey];
+          row.innerHTML = `
+            <div class="menu-item-desc-wrap">
+              <div class="item-station">${escHtml(item.station)}</div>
+              <div class="item-desc-text${isOverridden ? '" style="color:#c47820' : ''}">${escHtml(item.description)}</div>
+              <input class="item-desc-input" type="text" value="${escHtml(item.description)}" placeholder="Edit description…">
+            </div>
+            <div class="item-price" style="display:flex;align-items:center;gap:8px">
+              ${item.price ? escHtml(item.price) : ''}
+              <button class="edit-item-btn" title="Edit">Edit</button>
+            </div>`;
+          const textEl  = row.querySelector('.item-desc-text');
+          const inputEl = row.querySelector('.item-desc-input');
+          const editBtn = row.querySelector('.edit-item-btn');
+          editBtn.onclick = () => startEditItem(textEl, inputEl, editBtn, item, itemKey);
+          inputEl.addEventListener('keydown', e => {
+            if (e.key === 'Enter') saveEditItem(textEl, inputEl, editBtn, item, itemKey);
+            if (e.key === 'Escape') cancelEditItem(textEl, inputEl, editBtn, item);
+          });
+          list.appendChild(row);
+        }
+      }
+      wrap.appendChild(hdr);
+      wrap.appendChild(list);
+      body.appendChild(wrap);
+    }
+  } catch (err) {
+    body.innerHTML = `<p style="color:#b83030;font-size:13px">Error: ${err.message}</p>`;
+  }
+}
+
+function startEditItem(textEl, inputEl, btn, item, itemKey) {
+  textEl.style.display = 'none';
+  inputEl.style.display = 'block';
+  inputEl.value = textEl.textContent;
+  inputEl.focus(); inputEl.select();
+  btn.textContent = '✓';
+  btn.onclick = () => saveEditItem(textEl, inputEl, btn, item, itemKey);
+}
+function cancelEditItem(textEl, inputEl, btn, item) {
+  textEl.style.display = '';
+  inputEl.style.display = 'none';
+  btn.textContent = 'Edit';
+  btn.onclick = () => startEditItem(textEl, inputEl, btn, item, item.station + '||' + item.description);
+}
+async function saveEditItem(textEl, inputEl, btn, item, itemKey) {
+  const newText = inputEl.value.trim();
+  if (!newText || newText === item.description) { cancelEditItem(textEl, inputEl, btn, item); return; }
+  btn.textContent = '…'; btn.className = 'edit-item-btn saving';
+  try {
+    menuOverrides[itemKey] = newText;
+    await apiFetch('/admin/menu/overrides', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overrides: menuOverrides }),
+    });
+    textEl.textContent = newText;
+    textEl.style.color = '#c47820';
+    cancelEditItem(textEl, inputEl, btn, { ...item, description: newText });
+  } catch (err) {
+    alert('Save failed: ' + err.message);
+    cancelEditItem(textEl, inputEl, btn, item);
+  } finally { btn.className = 'edit-item-btn'; }
+}
+
+// ── Drag auto-scroll (browser only auto-scrolls the window, not overflow containers) ──
+let _scrollRaf = null;
+document.addEventListener('dragover', e => {
+  cancelAnimationFrame(_scrollRaf);
+  const content = document.getElementById('content');
+  if (!content) return;
+  const rect   = content.getBoundingClientRect();
+  const zone   = 80;
+  const speed  = 14;
+  const y      = e.clientY;
+  let delta    = 0;
+  if (y > rect.top && y < rect.top + zone)       delta = -speed * (1 - (y - rect.top) / zone);
+  else if (y > rect.bottom - zone && y < rect.bottom) delta =  speed * ((y - (rect.bottom - zone)) / zone);
+  if (delta === 0) return;
+  const step = () => { content.scrollTop += delta; _scrollRaf = requestAnimationFrame(step); };
+  _scrollRaf = requestAnimationFrame(step);
+});
+document.addEventListener('dragend',  () => { cancelAnimationFrame(_scrollRaf); _scrollRaf = null; });
+document.addEventListener('drop',     () => { cancelAnimationFrame(_scrollRaf); _scrollRaf = null; });
+
+// ── Photos tab ────────────────────────────────────────────────────────────────
+let draggingPhoto   = null;
+let photosMenuDays  = [];
+let photosCoverage  = [];
+let photosAllPhotos = [];
+
+const isTouchDevice = window.matchMedia('(hover: none)').matches;
+let selectedPhoto = null;
+let selectedCard  = null;
+
+function tapSelectPhoto(photo, card) {
+  if (selectedCard === card) {
+    card.classList.remove('selected');
+    selectedPhoto = null;
+    selectedCard  = null;
+  } else {
+    if (selectedCard) selectedCard.classList.remove('selected');
+    selectedPhoto = photo;
+    selectedCard  = card;
+    card.classList.add('selected');
+  }
+  updateTapHint();
+}
+
+function updateTapHint() {
+  const hint = document.getElementById('tap-assign-hint');
+  if (!hint) return;
+  if (selectedPhoto) {
+    hint.textContent = '"' + selectedPhoto.base + '" selected — tap a slot below to assign it';
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+async function loadPhotosTab() {
+  selectedPhoto = null;
+  selectedCard  = null;
+  updateTapHint();
+  document.getElementById('photo-gallery').innerHTML = '<p class="muted small" style="grid-column:1/-1">Loading…</p>';
+  document.getElementById('station-targets').innerHTML = '';
+  try {
+    const [allPhotos, coverage, menuData] = await Promise.all([
+      apiFetch('/admin/photos/all'),
+      apiFetch('/admin/photos'),
+      apiFetch('/admin/menu'),
+    ]);
+    photosAllPhotos = allPhotos;
+    photosCoverage  = coverage;
+    photosMenuDays  = (menuData.days || []).filter(d => !d.holiday && d.items.length);
+    document.getElementById('photo-count').textContent = '(' + allPhotos.length + ')';
+    const sel = document.getElementById('day-filter');
+    const prev = sel.value;
+    sel.innerHTML = '';
+    for (const day of photosMenuDays) {
+      const opt = document.createElement('option');
+      opt.value = day.name;
+      opt.textContent = day.name + ' · ' + day.date;
+      sel.appendChild(opt);
+    }
+    sel.value = prev && photosMenuDays.find(d => d.name === prev) ? prev : (photosMenuDays[0]?.name || '');
+    renderPhotoGallery(allPhotos);
+    applyDayFilter();
+  } catch (err) {
+    document.getElementById('photo-gallery').innerHTML = `<p style="color:#e05050;grid-column:1/-1">${err.message}</p>`;
+  }
+}
+
+function applyDayFilter() {
+  const sel     = document.getElementById('day-filter');
+  const dayName = sel.value;
+  const days    = photosMenuDays.filter(d => d.name === dayName);
+  renderDayTargets(days, photosCoverage, photosAllPhotos);
+}
+
+function reloadPhotosTab() { loadedTabs.photos = false; loadPhotosTab(); }
+
+function renderPhotoGallery(photos) {
+  const grid = document.getElementById('photo-gallery');
+  if (!photos.length) {
+    grid.innerHTML = '<p class="muted small" style="grid-column:1/-1">No photos uploaded yet.</p>';
+    return;
+  }
+  grid.innerHTML = '';
+  for (const photo of photos) {
+    const card = document.createElement('div');
+    card.className = 'gallery-card';
+    card.draggable = true;
+    const matched    = !!photo.matchedDish;
+    const matchLabel = photo.matchedDish || 'Not matched';
+    const matchClass = matched ? '' : ' unmatched';
+    card.innerHTML = `
+      <img src="${escHtml(photo.url)}" alt="${escHtml(photo.filename)}" loading="lazy">
+      <button class="gallery-card-rename" title="Rename">✎</button>
+      <button class="gallery-card-delete" title="Delete">✕</button>
+      <div class="gallery-card-body">
+        <div class="gallery-card-name" title="${escHtml(photo.filename)}">${escHtml(photo.filename)}</div>
+        <input class="gallery-card-name-input" type="text" value="${escHtml(photo.base)}" placeholder="New name…">
+        <div class="gallery-card-match${matchClass}"><span>${matched ? '✓ ' : ''}${escHtml(matchLabel)}</span></div>
+      </div>`;
+    if (photo.manualStation && photo.manualStation !== '__none__') {
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'clear-match-btn';
+      clearBtn.title = 'Clear assignment';
+      clearBtn.textContent = '×';
+      clearBtn.addEventListener('click', async e => {
+        e.stopPropagation();
+        clearBtn.disabled = true;
+        try {
+          await apiFetch('/admin/photos/assign', {
+            method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photoBase: photo.base }),
+          });
+          loadedTabs.photos = false;
+          loadPhotosTab();
+        } catch (err) {
+          alert('Error: ' + err.message);
+          clearBtn.disabled = false;
+        }
+      });
+      card.querySelector('.gallery-card-match').appendChild(clearBtn);
+    }
+    card.addEventListener('dragstart', e => {
+      draggingPhoto = photo;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      draggingPhoto = null;
+      card.classList.remove('dragging');
+    });
+    card.querySelector('.gallery-card-rename').addEventListener('click', e => {
+      e.stopPropagation();
+      startRenamePhoto(photo, card);
+    });
+    card.querySelector('.gallery-card-delete').addEventListener('click', e => {
+      e.stopPropagation();
+      if (!confirm(`Delete "${photo.filename}" from Storage?`)) return;
+      doDeletePhoto(photo.path, card);
+    });
+    if (isTouchDevice) {
+      card.addEventListener('click', e => {
+        if (e.target.closest('.gallery-card-rename') || e.target.closest('.gallery-card-delete')) return;
+        if (card.classList.contains('renaming')) return;
+        tapSelectPhoto(photo, card);
+      });
+    }
+    grid.appendChild(card);
+  }
+}
+
+function startRenamePhoto(photo, card) {
+  const nameEl  = card.querySelector('.gallery-card-name');
+  const inputEl = card.querySelector('.gallery-card-name-input');
+  card.classList.add('renaming');
+  card.draggable = false;
+  nameEl.style.display = 'none';
+  inputEl.style.display = 'block';
+  inputEl.focus();
+  inputEl.select();
+  const cancel = () => {
+    nameEl.style.display = '';
+    inputEl.style.display = 'none';
+    inputEl.value = photo.base;
+    card.classList.remove('renaming');
+    card.draggable = true;
+  };
+  inputEl.onkeydown = e => {
+    if (e.key === 'Enter')  doRenamePhoto(photo, inputEl.value.trim(), card, cancel);
+    if (e.key === 'Escape') cancel();
+  };
+}
+
+async function doRenamePhoto(photo, newBase, card, cancel) {
+  if (!newBase || newBase === photo.base) { cancel(); return; }
+  const nameEl = card.querySelector('.gallery-card-name');
+  nameEl.style.display = '';
+  nameEl.textContent = '…';
+  card.querySelector('.gallery-card-name-input').style.display = 'none';
+  card.classList.remove('renaming');
+  card.draggable = true;
+  try {
+    await apiFetch('/admin/photos/rename', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldPath: photo.path, newName: newBase }),
+    });
+    loadedTabs.photos = false;
+    loadPhotosTab();
+  } catch (err) {
+    alert('Rename failed: ' + err.message);
+    cancel();
+    nameEl.style.display = '';
+  }
+}
+
+const OUTDOOR_TARGETS = [
+  'Niman Ranch Cheeseburger', 'Burrito Wrap or Bowl', 'House Made Three Cheese', 'Crispy Chicken Wings',
+];
+
+function renderDayTargets(days, coverage, allPhotos) {
+  const stationPhotosMap = {};
+  for (const p of allPhotos) {
+    if (!p.matchedStation) continue;
+    if (!stationPhotosMap[p.matchedStation]) stationPhotosMap[p.matchedStation] = [];
+    stationPhotosMap[p.matchedStation].push(p);
+  }
+
+  const container = document.getElementById('station-targets');
+  container.innerHTML = '';
+
+  // Always-present stations
+  addTarget(container, 'Stone Hearth Oven',  stationPhotosMap['Stone Hearth Oven']  || [], 'Stone Hearth Oven');
+  addTarget(container, 'Sandwich Favorite',  stationPhotosMap['Sandwich Favorite']  || [], 'Sandwich Favorite');
+
+  // Daily stations — one slot per station, showing this week's dish as subtitle
+  const dailyLabel = document.createElement('div');
+  dailyLabel.className = 'section-label';
+  dailyLabel.textContent = 'Daily Stations';
+  container.appendChild(dailyLabel);
+
+  const shownStations = new Set(['Stone Hearth Oven', 'Sandwich Favorite']);
+  for (const day of days) {
+    if (day.holiday || !day.items.length) continue;
+    for (const item of day.items) {
+      if (shownStations.has(item.station)) continue;
+      shownStations.add(item.station);
+      const shortDesc = item.description.split(',')[0].trim();
+      addTarget(container, item.station, stationPhotosMap[item.station] || [], item.station, shortDesc);
+    }
+  }
+
+  const outdoorLabel = document.createElement('div');
+  outdoorLabel.className = 'section-label';
+  outdoorLabel.textContent = 'Outdoor / Everyday';
+  container.appendChild(outdoorLabel);
+  for (const name of OUTDOOR_TARGETS) {
+    addTarget(container, name, stationPhotosMap[name] || [], name);
+  }
+}
+
+function addTarget(container, displayName, photoArr, targetName, subtitleOverride) {
+  const hasPhoto = photoArr.length > 0;
+  const thumbUrl = hasPhoto ? photoArr[0].url : null;
+  const count    = photoArr.length;
+  const div = document.createElement('div');
+  div.className = 'station-target' + (hasPhoto ? ' has-photo' : '');
+  const thumb       = thumbUrl ? `<img src="${escHtml(thumbUrl)}" class="station-target-thumb" alt="">` : '';
+  const unassignBtn = hasPhoto ? `<button class="unassign-btn" title="Remove last">✕</button>` : '';
+  const sub         = subtitleOverride ? `<div class="station-target-status">${escHtml(subtitleOverride)}</div>` : '';
+  const countBadge  = count > 1 ? ` <span style="font-size:10px;color:#c47820">(${count} photos)</span>` : '';
+  const status      = !subtitleOverride
+    ? `<div class="station-target-status">${hasPhoto ? `✓ ${count} photo${count > 1 ? 's' : ''} — drop to add` : 'Drop photo here'}</div>`
+    : `<div class="station-target-status">${hasPhoto ? `✓ ${count} photo${count > 1 ? 's' : ''} — drop to add more` : 'Drop photo here'}</div>`;
+  div.innerHTML = `${thumb}${unassignBtn}<div class="station-target-name">${escHtml(displayName)}${countBadge}</div>${sub}${status}`;
+
+  if (hasPhoto) {
+    div.querySelector('.unassign-btn').addEventListener('click', async e => {
+      e.stopPropagation();
+      const statusEl = div.querySelector('.station-target-status');
+      if (statusEl) statusEl.textContent = 'Removing…';
+      const bases = [...new Set(photoArr.map(p => p.base))];
+      for (const base of bases) {
+        try {
+          await apiFetch('/admin/photos/assign', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photoBase: base, targetName: '__none__' }),
+          });
+        } catch (err) { alert('Error removing: ' + err.message); return; }
+      }
+      loadedTabs.photos = false;
+      loadPhotosTab();
+    });
+  }
+
+  div.addEventListener('dragover',  e => { if (!draggingPhoto) return; e.preventDefault(); div.classList.add('drag-over'); });
+  div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
+  div.addEventListener('drop', e => {
+    e.preventDefault(); div.classList.remove('drag-over');
+    if (!draggingPhoto) return;
+    doAssignPhoto(draggingPhoto, targetName, div);
+  });
+  if (isTouchDevice) {
+    div.addEventListener('click', e => {
+      if (e.target.closest('.unassign-btn')) return;
+      if (!selectedPhoto) return;
+      const photo = selectedPhoto;
+      selectedCard?.classList.remove('selected');
+      selectedPhoto = null;
+      selectedCard  = null;
+      updateTapHint();
+      doAssignPhoto(photo, targetName, div);
+    });
+  }
+  container.appendChild(div);
+}
+
+async function doDeletePhoto(filePath) {
+  try {
+    await apiFetch('/admin/photos', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filePath }),
+    });
+    loadedTabs.photos = false;
+    loadPhotosTab();
+  } catch (err) { alert('Error: ' + err.message); }
+}
+
+async function doAssignPhoto(photo, targetName, targetEl) {
+  const statusEl = targetEl.querySelector('.station-target-status');
+  const orig = statusEl.textContent;
+  statusEl.textContent = 'Assigning…';
+  try {
+    await apiFetch('/admin/photos/gallery-assign', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPhotoPath: photo.path, targetName }),
+    });
+    loadedTabs.photos = false;
+    loadPhotosTab();
+  } catch (err) {
+    statusEl.textContent = orig;
+    alert('Error: ' + err.message);
+  }
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
+let pendingUploads = [];
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+});
+
+function handleFiles(fileList) {
+  const queue = document.getElementById('upload-queue');
+  for (const file of fileList) {
+    const isHeic = /\.(heic|heif)$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif';
+    const baseName = file.name.replace(/\.[^.]+$/, '');
+    const li = document.createElement('li');
+    li.dataset.pending = '1';
+    li.innerHTML = `
+      <input class="q-name-input" type="text" value="${escHtml(baseName)}" placeholder="File name" title="Rename before uploading">
+      <div class="progress-bar-wrap" style="display:none"><div class="progress-bar" style="width:0%"></div></div>
+      <span class="q-status">Pending</span>
+      <button title="Remove" onclick="this.closest('li').remove();updateUploadBtn()">×</button>`;
+    queue.appendChild(li);
+    pendingUploads.push({ file, li, isHeic });
+  }
+  updateUploadBtn();
+}
+
+function updateUploadBtn() {
+  const btn   = document.getElementById('upload-all-btn');
+  const count = document.querySelectorAll('#upload-queue li[data-pending]').length;
+  if (count > 0) {
+    btn.style.display = '';
+    btn.textContent = `Upload ${count} photo${count !== 1 ? 's' : ''}`;
+  } else {
+    btn.style.display = 'none';
+    pendingUploads = pendingUploads.filter(p => p.li.dataset && p.li.dataset.pending);
+  }
+}
+
+async function startUploads() {
+  const items = Array.from(document.querySelectorAll('#upload-queue li[data-pending]'));
+  const btn   = document.getElementById('upload-all-btn');
+  btn.disabled = true;
+  for (const li of items) {
+    delete li.dataset.pending;
+    const nameInput = li.querySelector('.q-name-input');
+    const baseName  = (nameInput.value.trim() || nameInput.defaultValue || 'photo');
+    const destName  = baseName + '.jpg';
+    const nameSpan  = document.createElement('span');
+    nameSpan.className = 'q-name';
+    nameSpan.title = destName;
+    nameSpan.textContent = destName;
+    nameInput.replaceWith(nameSpan);
+    const barWrap = li.querySelector('.progress-bar-wrap');
+    const bar     = li.querySelector('.progress-bar');
+    if (barWrap) barWrap.style.display = '';
+    const status  = li.querySelector('.q-status');
+    const item    = pendingUploads.find(p => p.li === li);
+    if (!item) continue;
+    const { file, isHeic } = item;
+    status.textContent = isHeic ? 'Converting…' : 'Uploading…';
+    try {
+      let blob;
+      if (isHeic) {
+        blob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+        if (Array.isArray(blob)) blob = blob[0];
+        status.textContent = 'Uploading…';
+      } else { blob = file; }
+      const ref  = storage.ref('food-photos/' + destName);
+      const task = ref.put(blob, { contentType: 'image/jpeg' });
+      await new Promise((resolve, reject) => {
+        task.on('state_changed',
+          snap => { if (bar) bar.style.width = Math.round(snap.bytesTransferred / snap.totalBytes * 100) + '%'; },
+          reject, resolve);
+      });
+      status.textContent = 'Done'; status.className = 'q-status done';
+      if (bar) bar.style.width = '100%';
+    } catch (err) {
+      status.textContent = 'Error: ' + err.message; status.className = 'q-status error';
+    }
+  }
+  pendingUploads = [];
+  btn.disabled = false;
+  updateUploadBtn();
+  loadedTabs.photos = false;
+  loadPhotosTab();
+}
+let cachedPhotosCoverage = null;
+
+// ── Reviews ───────────────────────────────────────────────────────────────────
+async function loadReviewsTab() {
+  try {
+    allReviews = await apiFetch('/admin/reviews');
+    renderReviews(allReviews);
+  } catch (err) {
+    document.getElementById('reviews-body').innerHTML =
+      `<tr><td colspan="6" style="color:#b83030">${err.message}</td></tr>`;
+  }
+}
+
+function renderReviews(reviews) {
+  document.getElementById('review-count').textContent = `${reviews.length} review${reviews.length !== 1 ? 's' : ''}`;
+  const tbody = document.getElementById('reviews-body');
+  if (!reviews.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No reviews found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = reviews.map(r => {
+    const ts   = r.createdAt?.seconds ? new Date(r.createdAt.seconds * 1000) : null;
+    const date = ts ? ts.toLocaleDateString() : '—';
+    const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+    const parts = (r.itemKey || '').split('||');
+    const itemDesc = parts[1] ? (parts[1].length > 60 ? parts[1].substring(0, 60) + '…' : parts[1]) : '—';
+    return `<tr>
+      <td style="color:#9a8c7e;font-size:12px;white-space:nowrap">${date}</td>
+      <td style="font-weight:500">${escHtml(r.station || '—')}</td>
+      <td style="color:#9a8c7e;font-size:12px;max-width:200px">${escHtml(itemDesc)}</td>
+      <td><span class="stars" style="font-size:13px">${stars}</span></td>
+      <td style="max-width:300px;word-break:break-word;color:#4a3e32">${escHtml(r.comment || '')}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteReview('${r.id}',this)">Delete</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterReviews() {
+  const q      = document.getElementById('review-search').value.toLowerCase();
+  const rating = document.getElementById('review-rating').value;
+  const filtered = allReviews.filter(r => {
+    const blob = (r.station + ' ' + r.comment + ' ' + r.itemKey).toLowerCase();
+    return (!q || blob.includes(q)) && (!rating || String(r.rating) === rating);
+  });
+  renderReviews(filtered);
+}
+
+async function deleteReview(id, btn) {
+  if (!confirm('Delete this review?')) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    await apiFetch('/admin/reviews/' + id, { method: 'DELETE' });
+    allReviews = allReviews.filter(r => r.id !== id);
+    filterReviews();
+  } catch (err) {
+    alert('Error: ' + err.message);
+    btn.disabled = false; btn.textContent = 'Delete';
+  }
+}
+
+// ── Config ────────────────────────────────────────────────────────────────────
+async function loadConfigTab() {
+  try {
+    const data = await apiFetch('/admin/holidays');
+    holidays = data.holidays || [];
+    renderHolidays();
+  } catch (err) {
+    document.getElementById('holiday-list').innerHTML = `<li style="color:#b83030">${err.message}</li>`;
+  }
+}
+
+function renderHolidays() {
+  const ul = document.getElementById('holiday-list');
+  if (!holidays.length) {
+    ul.innerHTML = '<li style="color:#9a8c7e;font-size:12.5px;font-style:italic;padding:6px 0;border:none;background:none">No holidays configured.</li>';
+    return;
+  }
+  ul.innerHTML = holidays.map((d, i) =>
+    `<li><span>${d}</span><button onclick="removeHoliday(${i})">×</button></li>`
+  ).join('');
+}
+
+function addHoliday() {
+  const inp = document.getElementById('new-holiday');
+  const val = inp.value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) { alert('Use YYYY-MM-DD format'); return; }
+  if (holidays.includes(val)) { alert('Already in list'); return; }
+  holidays.push(val); holidays.sort(); inp.value = '';
+  renderHolidays();
+}
+function removeHoliday(i) { holidays.splice(i, 1); renderHolidays(); }
+
+async function saveHolidays() {
+  const msg = document.getElementById('holiday-msg');
+  try {
+    await apiFetch('/admin/holidays', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ holidays }),
+    });
+    flash(msg, 'ok', 'Holidays saved.');
+  } catch (err) { flash(msg, 'err', err.message); }
+}
+
+async function refreshCache(type) {
+  const msg = document.getElementById('cache-msg');
+  try {
+    const data = await apiFetch('/admin/' + type + '/refresh', { method: 'POST' });
+    flash(msg, 'ok', data.message);
+    delete loadedTabs[type === 'menu' ? 'menu' : 'photos'];
+  } catch (err) { flash(msg, 'err', err.message); }
+}
+
+function flash(el, type, text) {
+  el.className = 'flash-msg ' + type;
+  el.textContent = text;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

@@ -6,12 +6,13 @@
 <title>Monarch Café</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
+:root { --scrollbar: #2d2a25; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
-body { font-family: 'DM Sans', sans-serif; background: #0e0d0b; color: #f0e8d8; overflow: hidden; }
+body { font-family: 'DM Sans', sans-serif; background: #0e0d0b; color: #f0e8d8; overflow: hidden; transition: background 0.2s, color 0.2s; }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2d2a25; border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -28,7 +29,7 @@ body { font-family: 'DM Sans', sans-serif; background: #0e0d0b; color: #f0e8d8; 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 // ── Design tokens ─────────────────────────────────────────────────────────────
-const T = {
+const DARK_T = {
   bg:        '#0e0d0b',
   sidebar:   '#131210',
   card:      '#1c1917',
@@ -40,6 +41,38 @@ const T = {
   muted:     '#7a6e61',
   mutedLt:   '#a09181',
 };
+const LIGHT_T = {
+  bg:        '#f2ede6',
+  sidebar:   '#ece6dc',
+  card:      '#fff',
+  cardHov:   '#faf8f5',
+  border:    '#e2d9ce',
+  accent:    '#c47820',
+  accentDim: 'rgba(196,120,32,0.1)',
+  text:      '#1c1710',
+  muted:     '#9a8c7e',
+  mutedLt:   '#7a6e62',
+};
+const T = { ...DARK_T };
+
+function applyTheme(mode) {
+  const tokens = mode === 'light' ? LIGHT_T : DARK_T;
+  Object.assign(T, tokens);
+  document.body.style.background = T.bg;
+  document.body.style.color      = T.text;
+  document.documentElement.style.setProperty('--scrollbar', T.border);
+}
+
+function toggleTheme() {
+  const isLight = T.bg === LIGHT_T.bg;
+  const next = isLight ? 'dark' : 'light';
+  localStorage.setItem('monarchColorMode', next);
+  applyTheme(next);
+  render();
+}
+
+// Apply saved theme on load
+applyTheme(localStorage.getItem('monarchColorMode') || 'dark');
 
 // ── Station data ──────────────────────────────────────────────────────────────
 const PHOTO_GRAD = {
@@ -143,8 +176,8 @@ function css(node, styles) { Object.assign(node.style, styles); return node; }
 const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 // ── Build food photo element ──────────────────────────────────────────────────
-function makeFoodPhoto(station, height) {
-  const photoUrl = STATION_PHOTOS[station]?.main;
+function makeFoodPhoto(station, height, description) {
+  const photoUrl = photoForItem(station, description)?.main;
   const wrap     = el('div', { style:{
     height:height+'px', borderRadius:'12px',
     display:'flex', alignItems:'center', justifyContent:'center',
@@ -183,6 +216,19 @@ function makeFoodPhoto(station, height) {
 
 // ── Station photos (loaded from station-photos.json, falls back to gradient) ──
 let STATION_PHOTOS = {};
+
+function normalizeKey(s) {
+    return (s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+}
+function photoForItem(station, description) {
+    const desc = normalizeKey(description);
+    for (const [base, data] of Object.entries(STATION_PHOTOS)) {
+        const b = normalizeKey(base);
+        if (b && desc.includes(b)) return data;
+    }
+    return STATION_PHOTOS[station] || null;
+}
+
 function loadPhotos() {
   const day = state.days[state.activeDay]?.name || '';
   fetch('/api/photos?day=' + encodeURIComponent(day))
@@ -241,6 +287,28 @@ function render() {
       right.appendChild(buildCardGrid(day));
       if (state.selected) app.appendChild(buildModal(state.selected));
     }
+
+    const _isLight = T.bg === LIGHT_T.bg;
+    right.appendChild(el('div', { style:{
+      position:'fixed', top:'14px', right:'16px', zIndex:'50',
+      display:'flex', alignItems:'center', gap:'6px',
+    }},
+      el('span', { style:{ fontSize:'0.65rem', color:T.muted, userSelect:'none' }}, _isLight ? '☀' : '🌙'),
+      el('button', {
+        style:{
+          width:'34px', height:'18px', borderRadius:'9px', border:'none', cursor:'pointer',
+          background: _isLight ? T.accent : T.border, position:'relative', padding:'0',
+          flexShrink:'0',
+        },
+        onclick: toggleTheme,
+      },
+        el('span', { style:{
+          position:'absolute', top:'2px', left: _isLight ? '16px' : '2px',
+          width:'14px', height:'14px', borderRadius:'50%',
+          background: _isLight ? '#fff' : T.mutedLt,
+        }}),
+      ),
+    ));
 
     app.appendChild(right);
 
@@ -340,10 +408,14 @@ function buildSidebar() {
   }});
 
   // Wordmark
-  const statusColor = state.status.color;
-  const statusBg    = statusColor === '#6fcf97'  ? 'rgba(111,207,151,0.12)'
-                    : statusColor === T.accent    ? 'rgba(232,165,78,0.12)'
-                    :                               'rgba(122,110,97,0.15)';
+  const isLightHdr    = T.bg === LIGHT_T.bg;
+  const statusColor   = state.status.color;
+  const isGreenStatus = statusColor === '#6fcf97';
+  const displayColor  = isGreenStatus && isLightHdr ? '#1a7040' : statusColor;
+  const statusBg      = isGreenStatus
+    ? (isLightHdr ? 'rgba(26,100,58,0.18)' : 'rgba(111,207,151,0.12)')
+    : statusColor === T.accent    ? 'rgba(232,165,78,0.12)'
+    :                               'rgba(122,110,97,0.15)';
   const header = el('div', { style:{ padding:'32px 24px 24px' }},
     el('div', { style:{ fontFamily:"'Playfair Display',serif", fontSize:'1.4rem',
       fontWeight:'600', color:T.text, letterSpacing:'-0.01em', cursor:'pointer' },
@@ -354,8 +426,8 @@ function buildSidebar() {
     el('div', { style:{ marginTop:'14px', display:'inline-flex', alignItems:'center',
       gap:'6px', padding:'5px 12px', borderRadius:'20px', background:statusBg }},
       el('span', { style:{ width:'6px', height:'6px', borderRadius:'50%',
-        background:statusColor, display:'inline-block', flexShrink:'0' }}),
-      el('span', { style:{ fontSize:'0.72rem', fontWeight:'500', color:statusColor }},
+        background:displayColor, display:'inline-block', flexShrink:'0' }}),
+      el('span', { style:{ fontSize:'0.72rem', fontWeight:'500', color:displayColor }},
         state.status.label),
     ),
   );
@@ -535,7 +607,7 @@ function buildCardGrid(day) {
     };
 
     // Background: real photo or gradient
-    const photoUrl = STATION_PHOTOS[item.station]?.main;
+    const photoUrl = photoForItem(item.station, item.description)?.main;
     if (photoUrl) {
       const img = el('img', { style:{
         position:'absolute', inset:'0', width:'100%', height:'100%',
@@ -604,7 +676,7 @@ function buildDetail(item) {
     flex:'1', overflowY:'auto', padding:'40px 40px 40px 32px',
   }});
 
-  panel.appendChild(makeFoodPhoto(item.station, 280));
+  panel.appendChild(makeFoodPhoto(item.station, 280, item.description));
 
   const info = el('div', { style:{ marginTop:'28px' }});
   info.appendChild(el('div', { style:{ fontSize:'0.7rem', fontWeight:'500', color:T.accent,
@@ -651,8 +723,8 @@ function buildDetail(item) {
 }
 
 // ── Photo carousel (used in modal when multiple photos exist) ─────────────────
-function buildPhotoCarousel(station, height, extraStyles) {
-  const data    = STATION_PHOTOS[station];
+function buildPhotoCarousel(station, height, extraStyles, description) {
+  const data    = photoForItem(station, description);
   const gallery = data?.gallery || (data?.main ? [data.main] : []);
 
   if (gallery.length <= 1) {
@@ -746,8 +818,8 @@ function buildOutdoorModal(item) {
   }});
 
   // Photo — looks for a Storage photo matched to this outdoor item name
-  const photoUrl = STATION_PHOTOS[item.name]?.main ||
-    STATION_PHOTOS[item.name.split(',')[0].trim()]?.main;
+  const photoUrl = photoForItem(null, item.name)?.main ||
+    photoForItem(null, item.name.split(',')[0])?.main;
   const photoWrap = el('div', { style:{
     height:'200px', borderRadius:'16px 16px 0 0', overflow:'hidden',
     position:'relative', background:'linear-gradient(145deg,#2a1f14 0%,#5a3e28 50%,#8a6040 100%)',
@@ -769,7 +841,8 @@ function buildOutdoorModal(item) {
     style:{
       position:'absolute', top:'12px', right:'12px', zIndex:'2',
       width:'32px', height:'32px', borderRadius:'50%',
-      background:'rgba(14,13,11,0.7)', border:`1px solid ${T.border}`,
+      background: T.bg === LIGHT_T.bg ? 'rgba(240,232,210,0.92)' : 'rgba(14,13,11,0.7)',
+      border:`1px solid ${T.border}`,
       color:T.text, fontSize:'1.2rem', cursor:'pointer',
       fontFamily:'inherit', lineHeight:'1',
     },
@@ -844,14 +917,15 @@ function buildModal(item) {
     boxShadow:'0 24px 64px rgba(0,0,0,0.6)',
   }});
 
-  const photo = buildPhotoCarousel(item.station, 240, { borderRadius:'16px 16px 0 0' });
+  const photo = buildPhotoCarousel(item.station, 240, { borderRadius:'16px 16px 0 0' }, item.description);
   modal.appendChild(photo);
 
   modal.appendChild(el('button', {
     style:{
       position:'absolute', top:'12px', right:'12px', zIndex:'2',
       width:'32px', height:'32px', borderRadius:'50%',
-      background:'rgba(14,13,11,0.7)', border:`1px solid ${T.border}`,
+      background: T.bg === LIGHT_T.bg ? 'rgba(240,232,210,0.92)' : 'rgba(14,13,11,0.7)',
+      border:`1px solid ${T.border}`,
       color:T.text, fontSize:'1.2rem', cursor:'pointer',
       fontFamily:'inherit', lineHeight:'1',
     },
@@ -1165,6 +1239,14 @@ async function loadAllRatings() {
 setInterval(() => { state.status = getStatus(); render(); }, 60000);
 loadMenu();
 loadAllRatings();
+
+// Real-time updates: reload when admin makes changes
+let _versionFirst = true;
+db.collection('config').doc('version').onSnapshot(snap => {
+  if (_versionFirst) { _versionFirst = false; return; }
+  loadMenu();
+  loadPhotos();
+});
 </script>
 </body>
 </html>

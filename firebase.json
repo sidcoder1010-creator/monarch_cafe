@@ -7,6 +7,7 @@
     {
       "target": "production",
       "public": "public",
+      "cleanUrls": true,
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "rewrites": [
         { "source": "/api/**", "function": "api", "region": "us-central1" }
@@ -15,12 +16,16 @@
     {
       "target": "dev",
       "public": "public",
+      "cleanUrls": true,
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "rewrites": [
         { "source": "/api/**", "function": "api", "region": "us-central1" }
       ]
     }
   ],
+  "storage": {
+    "rules": "storage.rules"
+  },
   "functions": {
     "source": "functions"
   }
