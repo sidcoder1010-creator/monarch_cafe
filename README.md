@@ -1,87 +1,84 @@
-# Monarch Café — v1.1 Food Photos
+# Monarch Café — v2.0
 
-Builds on [v1.0](https://github.com/sidcoder1010-creator/monarch_cafe/tree/1.0_original) with real food photography and a redesigned card layout.
+A lunch menu viewer for Archbishop Mitty High School. Students can browse the weekly menu, see food photos, rate items, and check what's being served at the outdoor windows — all updated live whenever the admin makes changes.
 
----
-
-## What's New in v1.1
-
-### Real Food Photos
-Station cards now display actual food photography instead of color gradients. Photos are matched to stations using AI vision and served from Firebase Storage. Stations without a matched photo fall back to the v1.0 gradient placeholder automatically.
-
-### Full-Bleed Card Design
-Cards are now **220px tall** with the photo filling the entire card edge-to-edge. Station name, description, and price are overlaid directly on the image over a dark gradient scrim — no separate text section below the photo.
-
-### Hover Animation
-Cards scale up slightly (`1.02×`) on hover with a soft drop shadow, giving the grid a tactile feel.
+**Live site:** [monarch-cafe.web.app](https://monarch-cafe.web.app)
 
 ---
 
-## Photo Matching Pipeline
+## Features
 
-A one-time local script (`scripts/match-photos.js`) handles the full pipeline:
+### Student-Facing Menu Viewer
+- Weekly lunch menu parsed automatically from the school's PDF every hour
+- Day tabs (Mon–Fri) with the current day selected by default
+- Food photo cards with swipeable photo galleries per dish
+- Star ratings — tap to rate any item instantly (no page reload)
+- Today's Special hero banner highlighted at the top of the menu
+- Light/dark mode toggle
+- Live open/closed status based on café hours
 
-1. **Lists** all images in a Google Drive folder via the Drive API
-2. **Downloads** each image and converts it to JPEG (handles iPhone HEIC files via macOS `sips`)
-3. **Identifies** the food using OpenAI `gpt-4o-mini` vision — matches against the 10 station names
-4. **Uploads** the best match per station to Firebase Storage and makes it public
-5. **Writes** `public/station-photos.json` — a map of station name → CDN URL
+### Outdoor Window Menus (Sidebar)
+Three sections pulled from the PDF weekly:
+- **Window · Lunch** — hot items (cheeseburger, burrito, pizza, crispy wings, daily sandwich & bowl)
+- **Window · All Day** — cold items (salads, sandwiches, protein packs)
+- **Window · After School** — snack menu (smoothies, chips, cookies, etc.)
 
-The frontend fetches `station-photos.json` on boot and swaps in real photos wherever a match exists.
+### Admin Portal (`/admin`)
+Requires Google sign-in with an authorized school email.
+- Upload and assign food photos to menu items (drag & drop)
+- Photos auto-renamed using dish description and numbered gallery format (`_1`, `_2`, …)
+- Mark any day as a holiday — the menu shows "No Service" for that day
+- Set a "Today's Special" featured item that appears as a hero banner on the main page
+- View and delete student star ratings
+- Manual menu description overrides
+- One-click menu and photo cache refresh
 
-### Running the Script
+---
 
-Set up a `.env` file in the project root:
+## Tech Stack
 
-```
-GOOGLE_API_KEY=...
-OPENAI_API_KEY=...
-DRIVE_FOLDER_ID=...
-FIREBASE_BUCKET=monarch-cafe.firebasestorage.app
-```
+| Layer | Technology |
+|---|---|
+| Hosting | Firebase Hosting |
+| Backend | Firebase Cloud Functions (2nd Gen, Node 22, Express) |
+| Database | Firestore |
+| File storage | Firebase Storage |
+| Auth | Firebase Auth — Google OAuth, email allowlist |
+| PDF parsing | `pdf-parse` |
+| Frontend | Vanilla JS, single-file HTML (no build step) |
 
-Place your Firebase service account key at `scripts/serviceAccount.json`, then run:
+---
+
+## How It Works
+
+### Menu Parsing
+The backend fetches the weekly PDF from the school's AWS bucket and parses it with `pdf-parse`. Station names act as anchors to extract each day's dishes and prices. Results are cached for 1 hour.
+
+Firestore is checked for admin-set holidays and description overrides before the menu is returned to the client.
+
+### Photo Matching
+Photos are uploaded via the admin panel and stored in Firebase Storage. The filename is used to match a photo to a dish — either automatically (fuzzy name match) or manually via the admin's drag-and-drop assignment UI. Multiple photos per dish are supported as numbered galleries.
+
+### Live Updates
+The backend writes a timestamp to `config/version` in Firestore whenever an admin makes a change. The frontend subscribes to this document and silently reloads content in the background — no page refresh, no flash.
+
+---
+
+## Deployment
 
 ```bash
-npm run match-photos
-firebase deploy --only hosting
+firebase deploy --only functions,hosting
 ```
 
-Re-run whenever you add new photos to the Drive folder.
+Always deploy both together — deploying only one will leave the frontend and backend out of sync.
 
 ---
 
-## New Dependencies
+## Version History
 
-| Package | Purpose |
+| Branch | Description |
 |---|---|
-| `openai` | GPT-4o-mini vision for food → station matching |
-| `firebase-admin` | Upload photos to Firebase Storage |
-| `dotenv` | Load API keys from `.env` |
-
-HEIC conversion uses macOS's built-in `sips` — no extra package needed.
-
----
-
-## Matched Stations (v1.1)
-
-| Station | Photo Source |
-|---|---|
-| Viva Italia | ✓ Real photo |
-| Global Adventures | ✓ Real photo |
-| Kitchen Table | ✓ Real photo |
-| Platillos Latinos | ✓ Real photo |
-| Chef Special Bowl | ✓ Real photo |
-| Stone Hearth Oven | ✓ Real photo |
-| Breakfast Bistro | Gradient placeholder |
-| Breakfast Booster | Gradient placeholder |
-| Soup of the Day | Gradient placeholder |
-| Sandwich Favorite | Gradient placeholder |
-
-Add breakfast, soup, and sandwich photos to the Drive folder and re-run `npm run match-photos` to fill the remaining stations.
-
----
-
-## Everything Else
-
-All other features — PDF parsing, day tabs, station detail view, live status indicator, holiday support, Firebase deployment — are unchanged from v1.0. See the [v1.0 README](https://github.com/sidcoder1010-creator/monarch_cafe/tree/1.0_original) for full documentation.
+| `1.0_original` | Initial release — PDF parsing, day tabs, basic UI |
+| `1.1_foodphotos` | Real food photography, full-bleed card design |
+| `1.3_googlesignin` | Google OAuth for admin, replaced email/password |
+| `2.0_adminfixed` | Outdoor window menus, hero banner, star ratings, admin overhaul |
