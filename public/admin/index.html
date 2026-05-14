@@ -542,15 +542,18 @@ async function apiFetch(path, opts = {}) {
 
 // ── Menu tab ──────────────────────────────────────────────────────────────────
 let menuOverrides = {};
+let currentFeatured = null;
 
 async function loadMenuTab() {
   const body = document.getElementById('menu-body');
   try {
-    const [data, overrides] = await Promise.all([
+    const [data, overrides, featuredData] = await Promise.all([
       apiFetch('/admin/menu'),
       apiFetch('/admin/menu/overrides'),
+      fetch('/api/featured').then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     menuOverrides = overrides;
+    currentFeatured = featuredData;
     if (!data.days?.length) { body.innerHTML = '<p class="muted small">No menu data.</p>'; return; }
     body.innerHTML = '';
     for (const day of data.days) {
@@ -559,7 +562,7 @@ async function loadMenuTab() {
       const hdr = document.createElement('div');
       hdr.className = 'day-header';
       const holiday = day.holiday ? ' <span class="badge badge-red">Holiday</span>' : '';
-      hdr.innerHTML = `<span class="chevron">▶</span><span style="font-family:'Playfair Display',serif;font-size:15px;color:#1c1710">${day.name} · ${day.date}</span>${holiday}<span class="badge badge-gold" style="margin-left:auto">${day.items.length} items</span>`;
+      hdr.innerHTML = `<span class="chevron">▶</span><span style="font-family:'Playfair Display',serif;font-size:15px;color:var(--text)">${day.name} · ${day.date}</span>${holiday}<span class="badge badge-gold" style="margin-left:auto">${day.items.length} items</span>`;
       const list = document.createElement('div');
       list.className = 'day-items';
       hdr.onclick = () => { hdr.classList.toggle('open'); list.classList.toggle('open'); };
@@ -589,6 +592,44 @@ async function loadMenuTab() {
             if (e.key === 'Enter') saveEditItem(textEl, inputEl, editBtn, item, itemKey);
             if (e.key === 'Escape') cancelEditItem(textEl, inputEl, editBtn, item);
           });
+
+          const isFeatured = currentFeatured?.station === item.station
+            && currentFeatured?.description === item.description
+            && currentFeatured?.day === day.name;
+          const featBtn = document.createElement('button');
+          featBtn.className = 'btn btn-ghost feat-btn';
+          featBtn.style.cssText = 'font-size:11px;padding:3px 8px;';
+          featBtn.textContent = isFeatured ? '★ Featured' : '☆';
+          featBtn.title = isFeatured ? 'Remove Today\'s Special' : 'Set as Today\'s Special';
+          if (isFeatured) featBtn.style.color = '#c47820';
+          featBtn.addEventListener('click', async () => {
+            const nowFeatured = featBtn.textContent.includes('★');
+            featBtn.disabled = true;
+            try {
+              if (nowFeatured) {
+                await apiFetch('/admin/featured', { method: 'DELETE' });
+                currentFeatured = null;
+                featBtn.textContent = '☆';
+                featBtn.style.color = '';
+                featBtn.title = 'Set as Today\'s Special';
+              } else {
+                await apiFetch('/admin/featured', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ station: item.station, description: item.description, day: day.name, price: item.price }),
+                });
+                currentFeatured = { station: item.station, description: item.description, day: day.name };
+                document.querySelectorAll('.feat-btn').forEach(btn => {
+                  btn.textContent = '☆'; btn.style.color = ''; btn.title = 'Set as Today\'s Special';
+                });
+                featBtn.textContent = '★ Featured';
+                featBtn.style.color = '#c47820';
+                featBtn.title = 'Remove Today\'s Special';
+              }
+              featBtn.disabled = false;
+            } catch (err) { alert('Error: ' + err.message); featBtn.disabled = false; }
+          });
+          row.querySelector('.item-price').appendChild(featBtn);
+
           list.appendChild(row);
         }
       }
@@ -714,7 +755,9 @@ async function loadPhotosTab() {
       opt.textContent = day.name + ' · ' + day.date;
       sel.appendChild(opt);
     }
-    sel.value = prev && photosMenuDays.find(d => d.name === prev) ? prev : (photosMenuDays[0]?.name || '');
+    const todayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
+    sel.value = prev && photosMenuDays.find(d => d.name === prev) ? prev :
+                (photosMenuDays.find(d => d.name === todayName)?.name || photosMenuDays[0]?.name || '');
     renderPhotoGallery(allPhotos);
     applyDayFilter();
   } catch (err) {
@@ -880,8 +923,8 @@ function renderDayTargets(days, coverage, allPhotos) {
     for (const item of day.items) {
       if (shownStations.has(item.station)) continue;
       shownStations.add(item.station);
-      const shortDesc = item.description.split(',')[0].trim();
-      addTarget(container, item.station, stationPhotosMap[item.station] || [], item.station, shortDesc);
+      const renameName = item.description.split(/\bor\b/i)[0].trim().replace(/,+$/, '').trim() || item.station;
+      addTarget(container, item.station, stationPhotosMap[item.station] || [], renameName, item.description);
     }
   }
 

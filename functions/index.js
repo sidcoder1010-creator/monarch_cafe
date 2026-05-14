@@ -162,6 +162,18 @@ async function getMenu() {
     const { text } = await pdf(buf);
     const days     = parseMenu(text);
 
+    // Apply Firestore holidays (admin-managed)
+    try {
+        const hdoc = await db.collection('config').doc('holidays').get();
+        const firestoreHolidays = new Set(hdoc.exists ? (hdoc.data().dates || []) : []);
+        for (const day of days) {
+            if (!day.holiday && firestoreHolidays.has(toISO(day.date))) {
+                day.holiday = true;
+                day.items   = [];
+            }
+        }
+    } catch {}
+
     // Apply admin overrides
     try {
         const doc = await db.collection('config').doc('menuOverrides').get();
@@ -177,6 +189,149 @@ async function getMenu() {
     cachedMenu     = { days, fetchedAt: new Date().toISOString() };
     menuCacheUntil = Date.now() + 60 * 60 * 1000;
     return cachedMenu;
+}
+
+// ── Windows menu parser ───────────────────────────────────────────────────────
+let cachedWindows     = null;
+let windowsCacheUntil = 0;
+
+// Parses station-style outdoor lunch items (Station Name \n Desc \n $price)
+function parseWindowsLunchSection(text) {
+    const STATION_RE = new RegExp(
+        `(${STATIONS.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+        'gi'
+    );
+    const matches = [...text.matchAll(STATION_RE)];
+    const items = [];
+    for (let i = 0; i < matches.length; i++) {
+        const name = STATIONS.find(s => s.toLowerCase() === matches[i][1].toLowerCase()) || matches[i][1];
+        const from = matches[i].index + matches[i][1].length;
+        const to   = i + 1 < matches.length ? matches[i + 1].index : text.length;
+        const content = text.slice(from, to);
+        const priceMatch = content.match(/\$[\d.]+(?:\/\$[\d.]+)?/);
+        const price = priceMatch ? priceMatch[0] : null;
+        const desc = content.replace(/\$[\d.]+(?:\/\$[\d.]+)?/g, '')
+            .replace(/\s+/g, ' ').trim().replace(/^[,\s]+|[,\s]+$/g, '');
+        if (desc.length > 2) items.push({ name, desc: desc || null, price });
+    }
+    return items;
+}
+
+function parseWindowsItems(text) {
+    // Each item ends with a price like $X.XX or $X.XX/$X.XX or (MP)
+    const PRICE_RE = /\$[\d.]+(?:\/\$[\d.]+)?|\(MP\)/g;
+    const items = [];
+    let remaining = text.trim();
+    // Split on price occurrences to chunk item boundaries
+    const priceMatches = [...remaining.matchAll(PRICE_RE)];
+    let pos = 0;
+    for (const m of priceMatches) {
+        const chunk = remaining.slice(pos, m.index + m[0].length).trim();
+        const price = m[0];
+        const namePart = chunk.slice(0, chunk.lastIndexOf(price)).trim().replace(/\s+/g, ' ');
+        if (namePart.length > 3) {
+            // Split on ' - ' or ', ' to separate name from desc
+            const dashIdx = namePart.indexOf(' - ');
+            const commaIdx = namePart.indexOf(', ');
+            let name, desc;
+            if (dashIdx > 0 && (commaIdx < 0 || dashIdx < commaIdx)) {
+                name = namePart.slice(0, dashIdx).trim();
+                desc = namePart.slice(dashIdx + 3).trim();
+            } else if (commaIdx > 0 && commaIdx < 60) {
+                name = namePart.slice(0, commaIdx).trim();
+                desc = namePart.slice(commaIdx + 2).trim();
+            } else {
+                name = namePart;
+                desc = null;
+            }
+            items.push({ name, desc: desc || null, price });
+        }
+        pos = m.index + m[0].length;
+    }
+    return items;
+}
+
+// Parse a single inline-price item from text (e.g. "Crispy Chicken Wings, JoJo Potatoes $8.00")
+function extractInlineItem(text, re) {
+    const m = text.match(re);
+    if (!m) return null;
+    const full = m[0].trim();
+    const priceMatch = full.match(/\$[\d.]+(?:\/\$[\d.]+)?|\(MP\)/);
+    if (!priceMatch) return null;
+    const price = priceMatch[0];
+    const namePart = full.slice(0, full.lastIndexOf(price)).trim();
+    const dashIdx  = namePart.indexOf(' - ');
+    const commaIdx = namePart.indexOf(', ');
+    if (dashIdx > 0 && (commaIdx < 0 || dashIdx < commaIdx)) {
+        return { name: namePart.slice(0, dashIdx).trim(), desc: namePart.slice(dashIdx + 3).trim(), price };
+    } else if (commaIdx > 0 && commaIdx < 60) {
+        return { name: namePart.slice(0, commaIdx).trim(), desc: namePart.slice(commaIdx + 2).trim(), price };
+    }
+    return { name: namePart, desc: null, price };
+}
+
+async function getWindowsMenu() {
+    if (cachedWindows && Date.now() < windowsCacheUntil) return cachedWindows;
+
+    const resp = await fetch(PDF_URL);
+    if (!resp.ok) throw new Error(`PDF fetch failed: HTTP ${resp.status}`);
+    const buf      = Buffer.from(await resp.arrayBuffer());
+    const { text } = await pdf(buf);
+
+    // The Monarch Café section (Epicurean Group anchor) contains a mix of both menus.
+    // Items are ordered: hot lunch items first (cheeseburger, burrito, pizza), then
+    // cold all-day items (salads, sandwiches, protein packs).
+    const epicureanIdx = text.search(/Epicurean\s+Group/i);
+    let epicureanItems = [];
+
+    if (epicureanIdx >= 0) {
+        const section      = text.slice(epicureanIdx);
+        const cafeHeaderIdx = section.search(/Monarch\s+Caf[eé]/i);
+        if (cafeHeaderIdx >= 0) {
+            const afterHeader = section.indexOf('\n', cafeHeaderIdx) + 1;
+            epicureanItems   = parseWindowsItems(section.slice(afterHeader));
+        }
+    }
+
+    // Split Epicurean items into Windows Lunch (hot) vs Windows All Day (cold)
+    // by checking item name against known hot-food keywords.
+    const HOT = ['cheeseburger', 'burrito', 'three cheese'];
+    let windowsLunch  = epicureanItems.filter(i => HOT.some(k => i.name.toLowerCase().includes(k)));
+    let windowsAllDay = epicureanItems.filter(i => !HOT.some(k => i.name.toLowerCase().includes(k)));
+
+    // Crispy Chicken Wings, Sandwich Favorite of the Day, and Chef Special Bowl of the Day
+    // appear as inline-price items elsewhere in the weekly PDF columns, not in the Epicurean
+    // block. Extract them individually and append to Windows Lunch.
+    const crispyWings = extractInlineItem(text, /Crispy\s+Chicken\s+Wings[^\n]*\$[\d.]+/i);
+    if (crispyWings) windowsLunch.push(crispyWings);
+
+    const sandwichFav = extractInlineItem(text, /Sandwich\s+Favorite\s+of\s+the\s+Day[^\n]*\$[\d.]+/i);
+    if (sandwichFav) windowsLunch.push(sandwichFav);
+
+    const chefBowl = extractInlineItem(text, /Chef\s+Special\s+Bowl\s+of\s+the\s+Day[^\n]*\$[\d.]+/i);
+    if (chefBowl) windowsLunch.push(chefBowl);
+
+    // "Windows Afternoon Snack & Beverage Menu" lives in the weekly columns.
+    // Real snack items have description + price on the SAME line (station contamination uses
+    // separate lines), so keep only lines where a price appears inline with text.
+    let afternoonSnack = [];
+    const afternoonIdx = text.search(/Windows\s+Afternoon\s+Snack/i);
+    if (afternoonIdx >= 0) {
+        const afterHeader = text.indexOf('\n', afternoonIdx) + 1;
+        const sectionEnd  = epicureanIdx > afterHeader ? epicureanIdx : afterHeader + 3000;
+        const snackLines  = text.slice(afterHeader, sectionEnd).split('\n').filter(line => {
+            const trimmed    = line.trim();
+            const priceMatch = trimmed.match(/\$[\d.]+(?:\/\$[\d.]+)?|\(MP\)/);
+            if (!priceMatch) return false;
+            const textBefore = trimmed.slice(0, trimmed.indexOf(priceMatch[0])).trim();
+            return textBefore.length > 3;
+        });
+        afternoonSnack = parseWindowsItems(snackLines.join('\n'));
+    }
+
+    cachedWindows     = { windowsLunch, windowsAllDay, afternoonSnack };
+    windowsCacheUntil = Date.now() + 60 * 60 * 1000;
+    return cachedWindows;
 }
 
 // ── Photo matching ────────────────────────────────────────────────────────────
@@ -209,11 +364,12 @@ function findStation(mealName, menuItems) {
     return null;
 }
 
-// "Chow Mein 2" → { base: "Chow Mein", index: 2 }
+// "Chow Mein_2" → { base: "Chow Mein", index: 2 }
+// "Chow Mein 2" → { base: "Chow Mein", index: 2 }  (legacy space format)
 // "Chow Mein"   → { base: "Chow Mein", index: 1 }
-// "IMG_0805"    → { base: "IMG_0805",  index: 1 }  (no space before digits → treated as one unit)
+// "IMG_0805"    → { base: "IMG_0805",  index: 1 }  (4 digits → treated as one unit)
 function parsePhotoName(filename) {
-    const m = filename.match(/^(.+?)\s+(\d{1,2})$/);
+    const m = filename.match(/^(.+?)[_ ](\d{1,2})$/);
     return m ? { base: m[1].trim(), index: parseInt(m[2]) }
              : { base: filename.trim(), index: 1 };
 }
@@ -246,13 +402,13 @@ async function getPhotos(menuItems, dayName = 'default') {
     const images  = files.filter(f => /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name));
     const manual  = await getManualAssignments();
 
-    // Group files by base meal name
+    // Group files by base meal name, make all public in parallel
     const groups = {};
+    await Promise.all(images.map(file => file.makePublic().catch(() => {})));
     for (const file of images) {
         const filename = path.basename(file.name).replace(/\.[^.]+$/, '');
         const { base, index } = parsePhotoName(filename);
         if (!groups[base]) groups[base] = {};
-        await file.makePublic();
         const encoded = file.name.split('/').map(p => encodeURIComponent(p)).join('/');
         groups[base][index] = `https://storage.googleapis.com/monarch-cafe.firebasestorage.app/${encoded}`;
     }
@@ -441,8 +597,8 @@ app.post('/api/admin/photos/gallery-assign', requireAdmin, async (req, res) => {
         const [files] = await bucket.getFiles({ prefix: 'food-photos/' });
         const images  = files.filter(f => /\.(jpe?g|png|webp)$/i.test(f.name));
 
-        // Find existing files whose base name matches targetName exactly (with optional space+digits suffix)
-        const re = new RegExp(`^${escapeRegex(targetName)}( \\d+)?$`, 'i');
+        // Find existing files whose base name matches targetName exactly (with optional _N or legacy " N" suffix)
+        const re = new RegExp(`^${escapeRegex(targetName)}([_ ]\\d+)?$`, 'i');
         const existing = [];
         for (const file of images) {
             if (file.name === newPhotoPath) continue;
@@ -461,22 +617,22 @@ app.post('/api/admin/photos/gallery-assign', requireAdmin, async (req, res) => {
         }
 
         if (existing.length === 0) {
-            // First photo for this station — rename to targetName.jpg
-            const dest = 'food-photos/' + targetName + '.jpg';
+            // First photo — rename to targetName_1.jpg
+            const dest = 'food-photos/' + targetName + '_1.jpg';
             await safeRename(newPhotoPath, dest);
             const oldBase = path.basename(newPhotoPath).replace(/\.[^.]+$/, '');
             delete manual[oldBase];
         } else {
-            // Promote unnumbered existing photo to targetName 1.jpg
-            const unnumbered = existing.find(e => !/\s\d+$/.test(e.filename));
+            // Promote unnumbered existing photo (old format) to targetName_1.jpg
+            const unnumbered = existing.find(e => !/[_ ]\d+$/.test(e.filename));
             if (unnumbered) {
-                const dest1 = 'food-photos/' + targetName + ' 1.jpg';
+                const dest1 = 'food-photos/' + targetName + '_1.jpg';
                 await safeRename(unnumbered.file.name, dest1);
                 delete manual[unnumbered.filename];
             }
-            // Add new photo as targetName N+1.jpg
+            // Add new photo as targetName_N+1.jpg
             const nextN = existing.length + 1;
-            const dest = 'food-photos/' + targetName + ' ' + nextN + '.jpg';
+            const dest = 'food-photos/' + targetName + '_' + nextN + '.jpg';
             await safeRename(newPhotoPath, dest);
             const oldBase = path.basename(newPhotoPath).replace(/\.[^.]+$/, '');
             delete manual[oldBase];
@@ -528,6 +684,42 @@ app.post('/api/admin/menu/overrides', requireAdmin, async (req, res) => {
         if (typeof overrides !== 'object') return res.status(400).json({ error: 'overrides must be object' });
         await db.collection('config').doc('menuOverrides').set({ overrides });
         cachedMenu = null; menuCacheUntil = 0;
+        await updateVersion();
+        res.json({ ok: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/windows-menu', async (req, res) => {
+    try {
+        const data = await getWindowsMenu();
+        res.set('Cache-Control', 'public, max-age=3600');
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/featured', async (req, res) => {
+    try {
+        const doc = await db.collection('config').doc('featured').get();
+        res.json(doc.exists ? doc.data() : null);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/featured', requireAdmin, async (req, res) => {
+    try {
+        const { station, description, day, price } = req.body;
+        if (!station || !day) return res.status(400).json({ error: 'station and day required' });
+        await db.collection('config').doc('featured').set({
+            station, description: description || '', day, price: price || '',
+            setAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        await updateVersion();
+        res.json({ ok: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/admin/featured', requireAdmin, async (req, res) => {
+    try {
+        await db.collection('config').doc('featured').delete();
         await updateVersion();
         res.json({ ok: true });
     } catch (err) { res.status(500).json({ error: err.message }); }

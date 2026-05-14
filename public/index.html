@@ -116,11 +116,26 @@ const OUTDOOR_FIXED = [
   { name:'Crispy Chicken Wings, JoJo Potatoes, Ranch Dressing', price:'$8.00' },
 ];
 const ALL_DAY = [
-  { name:'Traditional Caesar Salad', desc:'Shaved Parmesan & Garlicky Croutons', price:'$7.00' },
+  { name:'Traditional Caesar Salad', desc:'Shaved Parmesan & Garlicky Croutons', price:'$7.75' },
   { name:'Traditional Grilled Chicken Caesar Salad', desc:'Shaved Parmesan, Garlicky Croutons', price:'$7.75' },
-  { name:'House Turkey & Provolone Cheese Sandwich', desc:'Crisp Shaved Iceberg, Pepperoncini Slices, Mayonnaise, Italian Dressing & Chips', price:'$7.75' },
-  { name:'The Very-Veggie Sandwich', desc:'Wild Summer Greens, Jack Cheese, Guacamole Spread, Cucumber, Tomato on Ciabatta Bread', price:'$7.75' },
-  { name:'Protein Pack', desc:'Free-Range Grilled Chicken, Hummus, Carrots, Snap Peas, Naan Bread', price:'$7.75' },
+  { name:'House Turkey & Pepper Jack Cheese Sandwich', desc:'Crisp Shaved Iceberg, Pepperoncini Slices, Mayonnaise, Italian Dressing & Chips', price:'$7.75' },
+  { name:'The Very-Veggie Sandwich', desc:'Wild Summer Greens, Lightly Tossed with House Vinaigrette, Jack Cheese, Guacamole Spread, Alfalfa Sprouts, Cucumber, Tomato on Focaccia Bread', price:'$7.75' },
+  { name:'Protein Pack – Chicken', desc:'Free-Range Grilled Chicken, Hummus, Carrots, Snap Peas, Naan Bread', price:'$7.75' },
+  { name:'Protein Pack – Eggs', desc:'Cage-Free Hard Boiled Eggs, Cheese, Crackers, Apple Slices', price:'$5.50' },
+];
+const AFTERNOON_SNACK = [
+  { name:'Smoothies', price:'$6.50' },
+  { name:'Iced Matcha Latte', desc:'w/ Milk or Oat Milk', price:'$5.50' },
+  { name:'Fresh Fruit Cup', price:'$5.50' },
+  { name:'Yogurt Parfait', desc:'w/ Organic Berries', price:'$5.25' },
+  { name:'Soft Pretzel', price:'$4.00' },
+  { name:'Crudites with Ranch Dressing', price:'$3.75' },
+  { name:'Protein Bars', price:'$3.75' },
+  { name:'Fresh Baked Cookie', desc:'Chocolate Chip, Triple Chocolate, Snickerdoodle, M&M', price:'$2.75' },
+  { name:'Cereal Cup w/ Milk', price:'$3.75' },
+  { name:'Assorted Chips / Kettle Chips', price:'$2.00/$2.50' },
+  { name:'Whole Fresh Fruit', price:'$1.75' },
+  { name:'Ice Cream Bars or Ice Cream Sandwiches', price:'MP' },
 ];
 const HOURS_DATA = [
   { s:'Breakfast',           t:'7:15 AM – 10:40 AM' },
@@ -229,6 +244,26 @@ function photoForItem(station, description) {
     return STATION_PHOTOS[station] || null;
 }
 
+async function loadWindowsMenu() {
+  try {
+    const res = await fetch('/api/windows-menu');
+    if (!res.ok) return;
+    const data = await res.json();
+    state.windowsLunch     = data.windowsLunch    || [];
+    state.windowsAllDay    = data.windowsAllDay   || [];
+    state.windowsAfternoon = data.afternoonSnack  || [];
+    if (!state.loading) render();
+  } catch(e) {}
+}
+
+async function loadFeatured() {
+  try {
+    const res = await fetch('/api/featured');
+    state.featured = res.ok ? await res.json() : null;
+    if (!state.loading) render();
+  } catch(e) {}
+}
+
 function loadPhotos() {
   const day = state.days[state.activeDay]?.name || '';
   fetch('/api/photos?day=' + encodeURIComponent(day))
@@ -255,6 +290,10 @@ let state = {
   weekLabel:        'Archbishop Mitty High School',
   status:           getStatus(),
   ratings:          {},
+  featured:         null,
+  windowsLunch:     [],
+  windowsAllDay:    [],
+  windowsAfternoon: [],
   weekendDismissed: false,
   holidayDismissed: false,
 };
@@ -467,62 +506,18 @@ function buildSidebar() {
     }}, d.name + ' · ' + d.date.replace(/(\w+) (\d+), \d+/, '$1 $2')));
   }
 
-  // Station list
-  const list = el('div', { style:{
-    flex:'1', overflowY:'auto', padding:'0 12px 24px',
-  }});
-
-  const items = state.days[state.activeDay]?.items || [];
-  if (items.length === 0 && !state.loading) {
-    list.appendChild(el('div', { style:{
-      padding:'20px 8px', fontSize:'0.82rem', color:T.muted,
-      fontStyle:'italic', fontFamily:"'Playfair Display',serif",
-    }}, state.days[state.activeDay]?.holiday ? 'School holiday' : 'No items today'));
-  } else {
-    items.forEach(item => {
-      const isSel = state.selected?.station === item.station;
-      const row = el('div', {
-        style:{
-          display:'flex', alignItems:'center', gap:'12px', padding:'11px 12px',
-          borderRadius:'10px', cursor:'pointer', marginBottom:'2px',
-          background: isSel ? T.accentDim : 'transparent',
-          border:`1px solid ${isSel ? T.accent+'44' : 'transparent'}`,
-          transition:'all 0.15s',
-        },
-        onclick: () => { state.selected = item; render(); },
-      },
-        el('span', { style:{ fontSize:'1.1rem', flexShrink:'0' }},
-          STATION_EMOJI[item.station] || '🍴'),
-        el('div', { style:{ flex:'1', minWidth:'0' }},
-          el('div', { style:{
-            fontSize:'0.8rem', fontWeight:'500',
-            color: isSel ? T.text : T.mutedLt,
-            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
-          }}, item.station),
-          el('div', { style:{ fontSize:'0.7rem', color:T.muted, marginTop:'1px' }},
-            item.price || ''),
-        ),
-        isSel ? el('span', { style:{ color:T.accent, fontSize:'0.8rem' }}, '›') : null,
-      );
-      list.appendChild(row);
-    });
-  }
-  sidebar.appendChild(list);
-
-  // Outdoor everyday items
+  // Outdoor window menus
   const outdoorSection = el('div', { style:{
-    borderTop:`1px solid ${T.border}`, padding:'14px 12px 20px', flexShrink:'0',
+    borderTop:`1px solid ${T.border}`, padding:'14px 12px 16px',
+    flex:'1', overflowY:'auto', minHeight:'0', marginTop:'8px',
   }});
-  outdoorSection.appendChild(el('div', { style:{
-    fontSize:'0.62rem', fontWeight:'500', color:T.muted,
-    textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:'10px', paddingLeft:'4px',
-  }}, 'Outdoor Window · Everyday'));
-  OUTDOOR_FIXED.forEach(item => {
+
+  function makeWindowRow(item) {
     const row = el('div', {
       style:{
-        display:'flex', justifyContent:'space-between', alignItems:'flex-start',
-        gap:'8px', padding:'7px 4px', borderBottom:`1px solid ${T.border+'88'}`,
-        cursor:'pointer', borderRadius:'6px', transition:'background 0.15s',
+        display:'flex', justifyContent:'space-between', alignItems:'baseline',
+        gap:'8px', padding:'5px 4px', borderBottom:`1px solid ${T.border+'66'}`,
+        cursor:'pointer', borderRadius:'4px', transition:'background 0.15s',
       },
       onclick: () => { state.selectedOutdoor = item; render(); },
       onmouseenter: (e) => { e.currentTarget.style.background = T.accentDim; },
@@ -530,29 +525,106 @@ function buildSidebar() {
     });
     row.appendChild(el('div', { style:{ flex:'1', minWidth:'0' }},
       el('div', { style:{
-        fontSize:'0.75rem', color:T.mutedLt, fontWeight:'500',
-        lineHeight:'1.3',
+        fontSize:'0.72rem', color:T.mutedLt, fontWeight:'500', lineHeight:'1.3',
       }}, item.name),
       item.desc ? el('div', { style:{
-        fontSize:'0.67rem', color:T.muted, marginTop:'2px', lineHeight:'1.3',
+        fontSize:'0.63rem', color:T.muted, marginTop:'1px', lineHeight:'1.3',
+        overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis',
       }}, item.desc) : null,
     ));
     row.appendChild(el('span', { style:{
-      fontFamily:"'Playfair Display',serif", fontSize:'0.78rem',
+      fontFamily:"'Playfair Display',serif", fontSize:'0.72rem',
       color:T.accent, flexShrink:'0', fontWeight:'600',
     }}, item.price));
-    outdoorSection.appendChild(row);
-  });
+    return row;
+  }
+
+  function sectionLabel(text) {
+    return el('div', { style:{
+      fontSize:'0.63rem', fontWeight:'700', color:T.text,
+      textTransform:'uppercase', letterSpacing:'0.09em',
+      padding:'2px 4px 7px', marginTop:'2px',
+    }}, text);
+  }
+
+  const lunchItems     = state.windowsLunch.length     ? state.windowsLunch     : [];
+  const allDayItems    = state.windowsAllDay.length    ? state.windowsAllDay    : ALL_DAY;
+  const afternoonItems = state.windowsAfternoon.length ? state.windowsAfternoon : AFTERNOON_SNACK;
+
+  if (lunchItems.length) {
+    outdoorSection.appendChild(sectionLabel('Window · Lunch'));
+    lunchItems.forEach(item => outdoorSection.appendChild(makeWindowRow(item)));
+    outdoorSection.appendChild(el('div', { style:{ height:'12px' }}));
+  }
+
+  outdoorSection.appendChild(sectionLabel('Window · All Day'));
+  allDayItems.forEach(item => outdoorSection.appendChild(makeWindowRow(item)));
+
+  outdoorSection.appendChild(el('div', { style:{ height:'12px' }}));
+  outdoorSection.appendChild(sectionLabel('Window · After School'));
+  afternoonItems.forEach(item => outdoorSection.appendChild(makeWindowRow(item)));
+
   sidebar.appendChild(outdoorSection);
 
   return sidebar;
+}
+
+// ── Today's Special hero banner ───────────────────────────────────────────────
+function buildHero(item) {
+  const photoUrl = photoForItem(item.station, item.description)?.main;
+  const hero = el('div', { style:{
+    position:'relative', borderRadius:'16px', overflow:'hidden',
+    height:'190px', marginBottom:'20px', cursor:'pointer',
+    border:`1px solid ${T.border}`,
+  }, onclick: () => {
+    const match = (state.days[state.activeDay]?.items || [])
+      .find(i => i.station === item.station && i.description === item.description);
+    if (match) { state.selected = match; render(); }
+  }});
+  if (photoUrl) {
+    const img = el('img', { style:{
+      position:'absolute', inset:'0', width:'100%', height:'100%', objectFit:'cover',
+    }});
+    img.src = photoUrl;
+    hero.appendChild(img);
+  } else {
+    css(hero, { background: STATION_GRAD[item.station] || PHOTO_GRAD.default });
+    hero.appendChild(el('div', { style:{
+      position:'absolute', inset:'0', opacity:'0.18',
+      backgroundImage:GRAIN, backgroundSize:'200px',
+    }}));
+  }
+  hero.appendChild(el('div', { style:{
+    position:'absolute', inset:'0',
+    background:'linear-gradient(to top, rgba(10,9,8,0.95) 0%, rgba(10,9,8,0.25) 65%, transparent 100%)',
+  }}));
+  hero.appendChild(el('div', { style:{
+    position:'absolute', top:'12px', left:'14px',
+    background:T.accent, color:'#1a1207',
+    fontSize:'0.6rem', fontWeight:'700', textTransform:'uppercase',
+    letterSpacing:'0.12em', padding:'4px 11px', borderRadius:'20px',
+  }}, '★  Today\'s Special'));
+  const ov = el('div', { style:{ position:'absolute', bottom:'0', left:'0', right:'0', padding:'14px 18px' }});
+  ov.appendChild(el('div', { style:{
+    fontSize:'0.62rem', fontWeight:'600', color:T.accent,
+    textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:'4px',
+  }}, item.station));
+  ov.appendChild(el('div', { style:{
+    fontFamily:"'Playfair Display',serif", fontSize:'1.15rem',
+    color:'rgba(240,232,216,0.95)', lineHeight:'1.25',
+  }}, item.description));
+  if (item.price) ov.appendChild(el('span', { style:{
+    fontSize:'0.82rem', color:T.accent, fontWeight:'600',
+  }}, item.price));
+  hero.appendChild(ov);
+  return hero;
 }
 
 // ── Card grid ─────────────────────────────────────────────────────────────────
 function buildCardGrid(day) {
   if (day.holiday) return buildHoliday();
 
-  const wrap = el('div', { className:'fade-up', style:{
+  const wrap = el('div', { style:{
     flex:'1', overflowY:'auto', padding:'28px 28px 40px', background:T.bg,
   }});
 
@@ -562,6 +634,10 @@ function buildCardGrid(day) {
     el('p',  { style:{ fontSize:'0.82rem', color:T.muted, marginTop:'4px' }},
       'Select a station to see details'),
   ));
+
+  if (state.featured && state.featured.day === day.name) {
+    wrap.appendChild(buildHero(state.featured));
+  }
 
   const breakfastItems = day.items.filter(i => i.category === 'breakfast');
   const lunchItems     = day.items.filter(i => i.category !== 'breakfast');
@@ -651,6 +727,51 @@ function buildCardGrid(day) {
         fontWeight:'600', color:T.accent, flexShrink:'0',
       }}, item.price || ''),
     ));
+    // Quick star reaction
+    const itemKey = item.station + '||' + (item.description || '');
+    const myRating = parseInt(localStorage.getItem('reacted_' + itemKey) || '0');
+    const starRow = el('div', { style:{
+      display:'flex', gap:'4px', marginTop:'7px', paddingTop:'7px',
+      borderTop:'1px solid rgba(255,255,255,0.1)',
+    }});
+    starRow.addEventListener('click', e => e.stopPropagation());
+    starRow.addEventListener('mouseleave', () => {
+      if (myRating) return;
+      Array.from(starRow.children).forEach((s, j) => {
+        s.style.color = 'rgba(255,255,255,0.25)';
+      });
+    });
+    for (let i = 1; i <= 5; i++) {
+      const idx = i;
+      const star = el('span', { style:{
+        fontSize:'0.88rem', cursor: myRating ? 'default' : 'pointer',
+        color: i <= myRating ? T.accent : 'rgba(255,255,255,0.25)',
+        lineHeight:'1', userSelect:'none',
+      }}, '★');
+      if (!myRating) {
+        star.addEventListener('mouseenter', () => {
+          Array.from(starRow.children).forEach((s, j) => {
+            s.style.color = j < idx ? T.accent : 'rgba(255,255,255,0.25)';
+          });
+        });
+        star.addEventListener('click', e => {
+          e.stopPropagation();
+          localStorage.setItem('reacted_' + itemKey, idx);
+          Array.from(starRow.children).forEach((s, j) => {
+            s.style.color = j < idx ? T.accent : 'rgba(255,255,255,0.25)';
+            s.style.cursor = 'default';
+            s.onmouseenter = null;
+          });
+          db.collection('reviews').add({
+            station: item.station, itemKey, rating: idx, comment: '',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          }).catch(() => {});
+        });
+      }
+      starRow.appendChild(star);
+    }
+    overlay.appendChild(starRow);
+
     card.appendChild(overlay);
     if (state.ratings[item.station]) {
       const { avg } = state.ratings[item.station];
@@ -728,7 +849,7 @@ function buildPhotoCarousel(station, height, extraStyles, description) {
   const gallery = data?.gallery || (data?.main ? [data.main] : []);
 
   if (gallery.length <= 1) {
-    const wrap = makeFoodPhoto(station, height);
+    const wrap = makeFoodPhoto(station, height, description);
     if (extraStyles) css(wrap, extraStyles);
     return wrap;
   }
@@ -1059,26 +1180,26 @@ function todayIndex(days) {
 }
 
 // ── Load menu from API ────────────────────────────────────────────────────────
-async function loadMenu() {
-  state.loading = true;
-  state.error   = null;
-  render();
+async function loadMenu(silent = false) {
+  if (!silent) { state.loading = true; state.error = null; render(); }
   try {
     const res = await fetch('/api/menu');
     if (!res.ok) throw new Error('Server error ' + res.status);
     const data = await res.json();
     if (!data.days?.length) throw new Error("No menu data in this week's PDF.");
     state.days      = data.days;
-    state.activeDay = todayIndex(data.days);
+    if (!silent) state.activeDay = todayIndex(data.days);
     const first = data.days[0], last = data.days[data.days.length-1];
     state.weekLabel = 'Week of ' + first.date + ' – ' + last.date.replace(/\w+ /, '');
     state.loading   = false;
     render();
     loadPhotos();
   } catch(err) {
-    state.error   = err.message;
-    state.loading = false;
-    render();
+    if (!silent || !state.days.length) {
+      state.error   = err.message;
+      state.loading = false;
+      render();
+    }
   }
 }
 
@@ -1239,13 +1360,16 @@ async function loadAllRatings() {
 setInterval(() => { state.status = getStatus(); render(); }, 60000);
 loadMenu();
 loadAllRatings();
+loadFeatured();
+loadWindowsMenu();
 
 // Real-time updates: reload when admin makes changes
 let _versionFirst = true;
 db.collection('config').doc('version').onSnapshot(snap => {
   if (_versionFirst) { _versionFirst = false; return; }
-  loadMenu();
+  loadMenu(true);
   loadPhotos();
+  loadFeatured();
 });
 </script>
 </body>
