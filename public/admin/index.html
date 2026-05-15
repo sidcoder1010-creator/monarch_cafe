@@ -406,17 +406,19 @@ const storage = firebase.storage();
           <option value="1">★ 1</option>
         </select>
         <span id="review-count" class="muted small"></span>
+        <button id="delete-selected-btn" class="btn btn-danger btn-sm" style="display:none;margin-left:auto" onclick="deleteSelected()">Delete Selected (<span id="selected-count">0</span>)</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
+              <th style="width:36px;text-align:center"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)" title="Select all"></th>
               <th>Date</th><th>Station</th><th>Item</th>
               <th>Rating</th><th>Comment</th><th></th>
             </tr>
           </thead>
           <tbody id="reviews-body">
-            <tr class="empty-row"><td colspan="6">Loading…</td></tr>
+            <tr class="empty-row"><td colspan="7">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -1118,7 +1120,26 @@ async function loadReviewsTab() {
     renderReviews(allReviews);
   } catch (err) {
     document.getElementById('reviews-body').innerHTML =
-      `<tr><td colspan="6" style="color:#b83030">${err.message}</td></tr>`;
+      `<tr><td colspan="7" style="color:#b83030">${err.message}</td></tr>`;
+  }
+}
+
+async function deleteSelected() {
+  const checked = Array.from(document.querySelectorAll('.review-cb:checked'));
+  const ids = checked.map(cb => cb.value);
+  if (!ids.length) return;
+  if (!confirm(`Delete ${ids.length} review${ids.length !== 1 ? 's' : ''}?`)) return;
+  const btn = document.getElementById('delete-selected-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="border-color:rgba(255,255,255,.3);border-top-color:#fff"></span> Deleting…';
+  try {
+    await Promise.all(ids.map(id => apiFetch('/admin/reviews/' + id, { method: 'DELETE' })));
+    allReviews = allReviews.filter(r => !ids.includes(r.id));
+    filterReviews();
+  } catch (err) {
+    alert('Error: ' + err.message);
+    btn.disabled = false;
+    btn.innerHTML = `Delete Selected (<span id="selected-count">${ids.length}</span>)`;
   }
 }
 
@@ -1126,7 +1147,8 @@ function renderReviews(reviews) {
   document.getElementById('review-count').textContent = `${reviews.length} review${reviews.length !== 1 ? 's' : ''}`;
   const tbody = document.getElementById('reviews-body');
   if (!reviews.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No reviews found.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No reviews found.</td></tr>';
+    updateBulkBar();
     return;
   }
   tbody.innerHTML = reviews.map(r => {
@@ -1136,14 +1158,37 @@ function renderReviews(reviews) {
     const parts = (r.itemKey || '').split('||');
     const itemDesc = parts[1] ? (parts[1].length > 60 ? parts[1].substring(0, 60) + '…' : parts[1]) : '—';
     return `<tr>
+      <td style="text-align:center"><input type="checkbox" class="review-cb" value="${escHtml(r.id)}" onchange="updateBulkBar()"></td>
       <td style="color:#9a8c7e;font-size:12px;white-space:nowrap">${date}</td>
       <td style="font-weight:500">${escHtml(r.station || '—')}</td>
       <td style="color:#9a8c7e;font-size:12px;max-width:200px">${escHtml(itemDesc)}</td>
       <td><span class="stars" style="font-size:13px">${stars}</span></td>
       <td style="max-width:300px;word-break:break-word;color:#4a3e32">${escHtml(r.comment || '')}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteReview('${r.id}',this)">Delete</button></td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteReview('${escHtml(r.id)}',this)">Delete</button></td>
     </tr>`;
   }).join('');
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const all     = document.querySelectorAll('.review-cb');
+  const checked = document.querySelectorAll('.review-cb:checked');
+  const selectAllCb = document.getElementById('select-all-cb');
+  const btn         = document.getElementById('delete-selected-btn');
+  const countEl     = document.getElementById('selected-count');
+  if (selectAllCb) {
+    selectAllCb.checked       = all.length > 0 && checked.length === all.length;
+    selectAllCb.indeterminate = checked.length > 0 && checked.length < all.length;
+  }
+  if (btn) {
+    btn.style.display  = checked.length > 0 ? '' : 'none';
+    countEl.textContent = checked.length;
+  }
+}
+
+function toggleSelectAll(checked) {
+  document.querySelectorAll('.review-cb').forEach(cb => { cb.checked = checked; });
+  updateBulkBar();
 }
 
 function filterReviews() {
