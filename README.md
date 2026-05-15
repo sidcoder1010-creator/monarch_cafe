@@ -1,4 +1,4 @@
-# Monarch Café — v2.1
+# Monarch Café — v2.2
 
 A lunch menu viewer for Archbishop Mitty High School. Students can browse the weekly menu, see food photos, rate items, and check what's being served at the outdoor windows — all updated live whenever the admin makes changes.
 
@@ -74,6 +74,12 @@ Always deploy both together — deploying only one will leave the frontend and b
 
 ---
 
+## What Changed in v2.2
+
+- **Mass delete reviews** — admin Reviews tab now has a checkbox on every row, a select-all header checkbox, and a "Delete Selected (N)" button that appears when rows are checked. Deletions run in parallel and the table updates instantly.
+
+---
+
 ## What Changed in v2.1
 
 - **Star rating display** — each menu card and the Today's Special hero banner now show the average star rating (e.g. `★ 4.2 · 5`) in the top-right corner. Previously you could only submit a rating, not see the running average.
@@ -92,3 +98,4 @@ Always deploy both together — deploying only one will leave the frontend and b
 | `1.3_googlesignin` | Google OAuth for admin, replaced email/password |
 | `2.0_adminfixed` | Outdoor window menus, hero banner, star ratings, admin overhaul |
 | `2.1_uifix` | Star rating display on cards, holiday override fix, theme toggle UX |
+| `2.2_reviewupdate` | Live star rating updates, mass delete reviews in admin |
