@@ -1,4 +1,4 @@
-# Monarch Café — v2.0
+# Monarch Café — v2.1
 
 A lunch menu viewer for Archbishop Mitty High School. Students can browse the weekly menu, see food photos, rate items, and check what's being served at the outdoor windows — all updated live whenever the admin makes changes.
 
@@ -12,9 +12,9 @@ A lunch menu viewer for Archbishop Mitty High School. Students can browse the we
 - Weekly lunch menu parsed automatically from the school's PDF every hour
 - Day tabs (Mon–Fri) with the current day selected by default
 - Food photo cards with swipeable photo galleries per dish
-- Star ratings — tap to rate any item instantly (no page reload)
+- Star ratings — tap to rate any item; average rating badge shown on each card and the hero banner
 - Today's Special hero banner highlighted at the top of the menu
-- Light/dark mode toggle
+- Light/dark mode toggle (scrolls with the menu, not pinned to the screen)
 - Live open/closed status based on café hours
 
 ### Outdoor Window Menus (Sidebar)
@@ -27,7 +27,7 @@ Three sections pulled from the PDF weekly:
 Requires Google sign-in with an authorized school email.
 - Upload and assign food photos to menu items (drag & drop)
 - Photos auto-renamed using dish description and numbered gallery format (`_1`, `_2`, …)
-- Mark any day as a holiday — the menu shows "No Service" for that day
+- Mark any day as a holiday — immediately clears the menu cache and shows "No Lunch Service Today" (works for café-closed days even when school is in session)
 - Set a "Today's Special" featured item that appears as a hero banner on the main page
 - View and delete student star ratings
 - Manual menu description overrides
@@ -82,3 +82,4 @@ Always deploy both together — deploying only one will leave the frontend and b
 | `1.1_foodphotos` | Real food photography, full-bleed card design |
 | `1.3_googlesignin` | Google OAuth for admin, replaced email/password |
 | `2.0_adminfixed` | Outdoor window menus, hero banner, star ratings, admin overhaul |
+| `2.1_uifix` | Star rating display on cards, holiday override fix, theme toggle UX |
