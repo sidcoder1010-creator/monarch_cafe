@@ -74,6 +74,15 @@ Always deploy both together — deploying only one will leave the frontend and b
 
 ---
 
+## What Changed in v2.1
+
+- **Star rating display** — each menu card and the Today's Special hero banner now show the average star rating (e.g. `★ 4.2 · 5`) in the top-right corner. Previously you could only submit a rating, not see the running average.
+- **Holiday override fix** — marking a day as a holiday in the admin Config tab now immediately clears the menu cache and triggers a real-time update across all open browser tabs. Before this fix, the holiday wouldn't show up until the cache expired (~1 hour). Also works correctly for café-closed days when school is still in session.
+- **Holiday messaging** — changed from "No School Today 🎉" to "No Lunch Service Today 🍽️" to cover both no-school days and school days where the café isn't open.
+- **Theme toggle UX** — the dark/light mode toggle is now part of the scrollable menu content (top-right of the "Today's Menu" header) instead of being pinned to the screen. It scrolls away when you scroll down and comes back when you scroll to the top.
+
+---
+
 ## Version History
 
 | Branch | Description |
