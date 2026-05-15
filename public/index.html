@@ -327,27 +327,6 @@ function render() {
       if (state.selected) app.appendChild(buildModal(state.selected));
     }
 
-    const _isLight = T.bg === LIGHT_T.bg;
-    right.appendChild(el('div', { style:{
-      position:'fixed', top:'14px', right:'16px', zIndex:'50',
-      display:'flex', alignItems:'center', gap:'6px',
-    }},
-      el('span', { style:{ fontSize:'0.65rem', color:T.muted, userSelect:'none' }}, _isLight ? '☀' : '🌙'),
-      el('button', {
-        style:{
-          width:'34px', height:'18px', borderRadius:'9px', border:'none', cursor:'pointer',
-          background: _isLight ? T.accent : T.border, position:'relative', padding:'0',
-          flexShrink:'0',
-        },
-        onclick: toggleTheme,
-      },
-        el('span', { style:{
-          position:'absolute', top:'2px', left: _isLight ? '16px' : '2px',
-          width:'14px', height:'14px', borderRadius:'50%',
-          background: _isLight ? '#fff' : T.mutedLt,
-        }}),
-      ),
-    ));
 
     app.appendChild(right);
 
@@ -382,14 +361,14 @@ function buildHolidayModal() {
     textAlign:'center', boxShadow:'0 24px 64px rgba(0,0,0,0.7)',
   }});
 
-  modal.appendChild(el('div', { style:{ fontSize:'2.8rem', marginBottom:'18px' }}, '🎉'));
+  modal.appendChild(el('div', { style:{ fontSize:'2.8rem', marginBottom:'18px' }}, '🍽️'));
   modal.appendChild(el('h2', { style:{
     fontFamily:"'Playfair Display',serif", fontSize:'1.55rem',
     fontWeight:'600', color:T.text, marginBottom:'10px', lineHeight:'1.2',
-  }}, 'No School Today'));
+  }}, 'No Lunch Service Today'));
   modal.appendChild(el('p', { style:{
     fontSize:'0.88rem', color:T.muted, lineHeight:'1.65', marginBottom:'28px',
-  }}, 'Monarch Café is closed for this school holiday. Enjoy your day off!'));
+  }}, 'Monarch Café is closed today. Check back on the next service day!'));
   modal.appendChild(el('button', {
     style:{
       padding:'10px 32px', borderRadius:'10px', border:'none',
@@ -604,6 +583,15 @@ function buildHero(item) {
     fontSize:'0.6rem', fontWeight:'700', textTransform:'uppercase',
     letterSpacing:'0.12em', padding:'4px 11px', borderRadius:'20px',
   }}, '★  Today\'s Special'));
+  const heroItemKey = item.station + '||' + (item.description || '');
+  if (state.ratings[heroItemKey]) {
+    const { avg, count } = state.ratings[heroItemKey];
+    hero.appendChild(el('div', { style:{
+      position:'absolute', top:'12px', right:'14px', zIndex:'2',
+      background:'rgba(0,0,0,0.55)', borderRadius:'20px', padding:'4px 10px',
+      fontSize:'0.72rem', color:T.accent, fontWeight:'600',
+    }}, '★ ' + avg.toFixed(1) + (count > 1 ? ' · ' + count : '')));
+  }
   const ov = el('div', { style:{ position:'absolute', bottom:'0', left:'0', right:'0', padding:'14px 18px' }});
   ov.appendChild(el('div', { style:{
     fontSize:'0.62rem', fontWeight:'600', color:T.accent,
@@ -628,11 +616,30 @@ function buildCardGrid(day) {
     flex:'1', overflowY:'auto', padding:'28px 28px 40px', background:T.bg,
   }});
 
-  wrap.appendChild(el('div', { style:{ marginBottom:'24px' }},
-    el('h1', { style:{ fontFamily:"'Playfair Display',serif", fontSize:'1.6rem',
-      fontWeight:'600', color:T.text }}, "Today's Menu"),
-    el('p',  { style:{ fontSize:'0.82rem', color:T.muted, marginTop:'4px' }},
-      'Select a station to see details'),
+  const _isLight = T.bg === LIGHT_T.bg;
+  wrap.appendChild(el('div', { style:{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'24px' }},
+    el('div', null,
+      el('h1', { style:{ fontFamily:"'Playfair Display',serif", fontSize:'1.6rem',
+        fontWeight:'600', color:T.text }}, "Today's Menu"),
+      el('p',  { style:{ fontSize:'0.82rem', color:T.muted, marginTop:'4px' }},
+        'Select a station to see details'),
+    ),
+    el('div', { style:{ display:'flex', alignItems:'center', gap:'6px' }},
+      el('span', { style:{ fontSize:'0.65rem', color:T.muted, userSelect:'none' }}, _isLight ? '☀' : '🌙'),
+      el('button', {
+        style:{
+          width:'34px', height:'18px', borderRadius:'9px', border:'none', cursor:'pointer',
+          background: _isLight ? T.accent : T.border, position:'relative', padding:'0', flexShrink:'0',
+        },
+        onclick: toggleTheme,
+      },
+        el('span', { style:{
+          position:'absolute', top:'2px', left: _isLight ? '16px' : '2px',
+          width:'14px', height:'14px', borderRadius:'50%',
+          background: _isLight ? '#fff' : T.mutedLt,
+        }}),
+      ),
+    ),
   ));
 
   if (state.featured && state.featured.day === day.name) {
@@ -773,13 +780,13 @@ function buildCardGrid(day) {
     overlay.appendChild(starRow);
 
     card.appendChild(overlay);
-    if (state.ratings[item.station]) {
-      const { avg } = state.ratings[item.station];
+    if (state.ratings[itemKey]) {
+      const { avg, count } = state.ratings[itemKey];
       card.appendChild(el('div', { style:{
         position:'absolute', top:'10px', right:'10px', zIndex:'2',
         background:'rgba(0,0,0,0.55)', borderRadius:'20px', padding:'4px 10px',
         fontSize:'0.72rem', color:T.accent, fontWeight:'600',
-      }}, '★ ' + avg.toFixed(1)));
+      }}, '★ ' + avg.toFixed(1) + (count > 1 ? ' · ' + count : '')));
     }
       grid.appendChild(card);
     });
@@ -1130,11 +1137,11 @@ function buildHoliday() {
     flex:'1', display:'flex', flexDirection:'column', alignItems:'center',
     justifyContent:'center', gap:'16px',
   }},
-    el('div', { style:{ fontSize:'4rem' }}, '🎉'),
+    el('div', { style:{ fontSize:'4rem' }}, '🍽️'),
     el('h2',  { style:{ fontFamily:"'Playfair Display',serif", fontSize:'1.6rem',
-      fontWeight:'600', color:T.text }}, 'No School Today'),
+      fontWeight:'600', color:T.text }}, 'No Lunch Service Today'),
     el('p',   { style:{ color:T.muted, fontSize:'0.9rem' }},
-      'Enjoy your day off — the café will be back next school day.'),
+      'Monarch Café is closed — check back on the next service day.'),
   );
 }
 
@@ -1349,7 +1356,7 @@ async function loadAllRatings() {
       const snap = await db.collection('reviews').where('itemKey', '==', itemKey).get();
       let total = 0, count = 0;
       snap.forEach(doc => { total += doc.data().rating; count++; });
-      if (count > 0) acc[item.station] = { avg: total / count, count };
+      if (count > 0) acc[itemKey] = { avg: total / count, count };
     }
     state.ratings = acc;
     if (!state.loading) render();

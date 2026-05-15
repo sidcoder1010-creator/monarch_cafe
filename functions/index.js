@@ -737,6 +737,8 @@ app.post('/api/admin/holidays', requireAdmin, async (req, res) => {
         const { holidays } = req.body;
         if (!Array.isArray(holidays)) return res.status(400).json({ error: 'holidays must be array' });
         await db.collection('config').doc('holidays').set({ dates: holidays });
+        cachedMenu = null; menuCacheUntil = 0;
+        await updateVersion();
         res.json({ ok: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
