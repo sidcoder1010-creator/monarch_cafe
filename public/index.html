@@ -167,6 +167,20 @@ function getStatus() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+function weekKey() {
+  const d = new Date();
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); // back to Monday
+  return 'w' + d.toISOString().slice(0, 10); // e.g. "w2025-05-12"
+}
+
+// Drop localStorage entries from previous weeks on load
+(function pruneStaleRatings() {
+  const prefix = 'reacted_' + weekKey() + '_';
+  Object.keys(localStorage).filter(k => k.startsWith('reacted_') && !k.startsWith(prefix))
+    .forEach(k => localStorage.removeItem(k));
+})();
+
 function el(tag, props, ...children) {
   const node = document.createElement(tag);
   if (props) {
@@ -742,7 +756,7 @@ function buildCardGrid(day) {
     ));
     // Quick star reaction
     const itemKey = item.station + '||' + (item.description || '');
-    let ratedValue = parseInt(localStorage.getItem('reacted_' + itemKey) || '0');
+    let ratedValue = parseInt(localStorage.getItem('reacted_' + weekKey() + '_' + itemKey) || '0');
     let locked = ratedValue > 0;
 
     // Badge lives on the card, updated in-place — no render() needed
@@ -784,7 +798,7 @@ function buildCardGrid(day) {
         if (locked) return;
         locked = true;
         ratedValue = idx;
-        localStorage.setItem('reacted_' + itemKey, idx);
+        localStorage.setItem('reacted_' + weekKey() + '_' + itemKey, idx);
         // Lock visuals immediately — no render()
         Array.from(starRow.children).forEach((s, j) => {
           s.style.color = j < idx ? T.accent : 'rgba(255,255,255,0.25)';
