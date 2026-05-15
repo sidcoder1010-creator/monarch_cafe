@@ -665,6 +665,13 @@ app.delete('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/api/admin/reviews/clear-stars', requireAdmin, async (req, res) => {
+    try {
+        await updateReviewsCleared();
+        res.json({ ok: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/admin/photos/refresh', requireAdmin, (req, res) => {
     clearPhotosCache();
     res.json({ ok: true, message: 'Photo cache cleared' });

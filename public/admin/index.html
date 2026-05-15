@@ -407,7 +407,9 @@ const storage = firebase.storage();
         </select>
         <span id="review-count" class="muted small"></span>
         <button id="delete-selected-btn" class="btn btn-danger btn-sm" style="display:none;margin-left:auto" onclick="deleteSelected()">Delete Selected (<span id="selected-count">0</span>)</button>
+        <button id="clear-stars-btn" class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="clearStars(this)" title="Signal all devices to clear their saved star selections. Does not delete any reviews.">Clear All Stars</button>
       </div>
+      <div id="clear-stars-msg" class="flash-msg" style="margin-bottom:12px"></div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -1121,6 +1123,23 @@ async function loadReviewsTab() {
   } catch (err) {
     document.getElementById('reviews-body').innerHTML =
       `<tr><td colspan="7" style="color:#b83030">${err.message}</td></tr>`;
+  }
+}
+
+async function clearStars(btn) {
+  if (!confirm('Signal all devices to clear their saved star selections?\n\nThis does NOT delete any reviews — it only resets which stars look selected on the menu page.')) return;
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="border-color:rgba(0,0,0,.15);border-top-color:#666"></span>';
+  const msg = document.getElementById('clear-stars-msg');
+  try {
+    await apiFetch('/admin/reviews/clear-stars', { method: 'POST' });
+    flash(msg, 'ok', 'Star selections cleared on all devices.');
+  } catch (err) {
+    flash(msg, 'err', 'Error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
   }
 }
 
