@@ -392,6 +392,10 @@ async function updateVersion() {
     try { await db.collection('config').doc('version').set({ updatedAt: admin.firestore.FieldValue.serverTimestamp() }); } catch(e) {}
 }
 
+async function updateReviewsCleared() {
+    try { await db.collection('config').doc('reviewsCleared').set({ clearedAt: admin.firestore.FieldValue.serverTimestamp() }); } catch(e) {}
+}
+
 function escapeRegex(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 async function getPhotos(menuItems, dayName = 'default') {
@@ -656,6 +660,7 @@ app.get('/api/admin/reviews', requireAdmin, async (req, res) => {
 app.delete('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
     try {
         await db.collection('reviews').doc(req.params.id).delete();
+        await updateReviewsCleared();
         res.json({ ok: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });

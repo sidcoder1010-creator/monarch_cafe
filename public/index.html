@@ -1403,6 +1403,21 @@ db.collection('config').doc('version').onSnapshot(snap => {
   loadPhotos();
   loadFeatured();
 });
+
+// Clear local ratings when admin deletes reviews
+let _reviewsClearedFirst = true;
+let _clearRatingsTimer   = null;
+db.collection('config').doc('reviewsCleared').onSnapshot(() => {
+  if (_reviewsClearedFirst) { _reviewsClearedFirst = false; return; }
+  clearTimeout(_clearRatingsTimer);
+  _clearRatingsTimer = setTimeout(() => {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('reacted_'))
+      .forEach(k => localStorage.removeItem(k));
+    state.ratings = {};
+    if (!state.loading) render();
+  }, 500);
+});
 </script>
 </body>
 </html>

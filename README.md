@@ -77,6 +77,7 @@ Always deploy both together — deploying only one will leave the frontend and b
 ## What Changed in v2.2
 
 - **Mass delete reviews** — admin Reviews tab now has a checkbox on every row, a select-all header checkbox, and a "Delete Selected (N)" button that appears when rows are checked. Deletions run in parallel and the table updates instantly.
+- **Review clear syncs to all devices** — when admin deletes reviews, a Firestore signal clears the "already rated" localStorage entries on every open customer device. Users can immediately re-rate without needing to reload.
 
 ---
 
