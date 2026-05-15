@@ -1135,6 +1135,8 @@ async function deleteSelected() {
   try {
     await Promise.all(ids.map(id => apiFetch('/admin/reviews/' + id, { method: 'DELETE' })));
     allReviews = allReviews.filter(r => !ids.includes(r.id));
+    btn.disabled = false;
+    btn.innerHTML = 'Delete Selected (<span id="selected-count">0</span>)';
     filterReviews();
   } catch (err) {
     alert('Error: ' + err.message);
@@ -1182,7 +1184,7 @@ function updateBulkBar() {
   }
   if (btn) {
     btn.style.display  = checked.length > 0 ? '' : 'none';
-    countEl.textContent = checked.length;
+    if (countEl) countEl.textContent = checked.length;
   }
 }
 
