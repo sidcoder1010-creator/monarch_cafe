@@ -280,6 +280,9 @@ function isWeekend() {
   return d === 0 || d === 6 || (d === 5 && m >= 15 * 60 + 30);
 }
 
+let _heroBadgeEl = null;
+let _heroBadgeItemKey = null;
+
 let state = {
   days:             [],
   activeDay:        0,
@@ -463,7 +466,7 @@ function buildSidebar() {
         fontSize:'0.7rem', fontWeight:'500', cursor:'pointer', fontFamily:'inherit',
         transition:'all 0.15s', position:'relative',
       },
-      onclick: () => { state.activeDay = i; state.selected = null; render(); loadPhotos(); },
+      onclick: () => { state.activeDay = i; state.selected = null; render(); loadPhotos(); loadAllRatings(); },
     }, day.name.slice(0,3) + ' ' + day.date.replace(/\w+ (\d+), \d+/, '$1'));
     if (day.holiday) {
       btn.appendChild(el('span', { style:{
@@ -584,14 +587,17 @@ function buildHero(item) {
     letterSpacing:'0.12em', padding:'4px 11px', borderRadius:'20px',
   }}, '★  Today\'s Special'));
   const heroItemKey = item.station + '||' + (item.description || '');
-  if (state.ratings[heroItemKey]) {
-    const { avg, count } = state.ratings[heroItemKey];
-    hero.appendChild(el('div', { style:{
-      position:'absolute', top:'12px', right:'14px', zIndex:'2',
-      background:'rgba(0,0,0,0.55)', borderRadius:'20px', padding:'4px 10px',
-      fontSize:'0.72rem', color:T.accent, fontWeight:'600',
-    }}, '★ ' + avg.toFixed(1) + (count > 1 ? ' · ' + count : '')));
-  }
+  const heroBadge = el('div', { style:{
+    position:'absolute', top:'12px', right:'14px', zIndex:'2',
+    background:'rgba(0,0,0,0.55)', borderRadius:'20px', padding:'4px 10px',
+    fontSize:'0.72rem', color:T.accent, fontWeight:'600',
+    display: state.ratings[heroItemKey] ? '' : 'none',
+  }}, state.ratings[heroItemKey]
+    ? '★ ' + state.ratings[heroItemKey].avg.toFixed(1) + (state.ratings[heroItemKey].count > 1 ? ' · ' + state.ratings[heroItemKey].count : '')
+    : '');
+  _heroBadgeEl      = heroBadge;
+  _heroBadgeItemKey = heroItemKey;
+  hero.appendChild(heroBadge);
   const ov = el('div', { style:{ position:'absolute', bottom:'0', left:'0', right:'0', padding:'14px 18px' }});
   ov.appendChild(el('div', { style:{
     fontSize:'0.62rem', fontWeight:'600', color:T.accent,
@@ -736,58 +742,77 @@ function buildCardGrid(day) {
     ));
     // Quick star reaction
     const itemKey = item.station + '||' + (item.description || '');
-    const myRating = parseInt(localStorage.getItem('reacted_' + itemKey) || '0');
+    let ratedValue = parseInt(localStorage.getItem('reacted_' + itemKey) || '0');
+    let locked = ratedValue > 0;
+
+    // Badge lives on the card, updated in-place — no render() needed
+    const ratingBadge = el('div', { style:{
+      position:'absolute', top:'10px', right:'10px', zIndex:'2',
+      background:'rgba(0,0,0,0.55)', borderRadius:'20px', padding:'4px 10px',
+      fontSize:'0.72rem', color:T.accent, fontWeight:'600',
+      display: state.ratings[itemKey] ? '' : 'none',
+    }}, state.ratings[itemKey]
+      ? '★ ' + state.ratings[itemKey].avg.toFixed(1) + (state.ratings[itemKey].count > 1 ? ' · ' + state.ratings[itemKey].count : '')
+      : '');
+
     const starRow = el('div', { style:{
       display:'flex', gap:'4px', marginTop:'7px', paddingTop:'7px',
       borderTop:'1px solid rgba(255,255,255,0.1)',
     }});
     starRow.addEventListener('click', e => e.stopPropagation());
     starRow.addEventListener('mouseleave', () => {
-      if (myRating) return;
-      Array.from(starRow.children).forEach((s, j) => {
+      if (locked) return;
+      Array.from(starRow.children).forEach(s => {
         s.style.color = 'rgba(255,255,255,0.25)';
       });
     });
     for (let i = 1; i <= 5; i++) {
       const idx = i;
       const star = el('span', { style:{
-        fontSize:'0.88rem', cursor: myRating ? 'default' : 'pointer',
-        color: i <= myRating ? T.accent : 'rgba(255,255,255,0.25)',
+        fontSize:'0.88rem', cursor: locked ? 'default' : 'pointer',
+        color: i <= ratedValue ? T.accent : 'rgba(255,255,255,0.25)',
         lineHeight:'1', userSelect:'none',
       }}, '★');
-      if (!myRating) {
-        star.addEventListener('mouseenter', () => {
-          Array.from(starRow.children).forEach((s, j) => {
-            s.style.color = j < idx ? T.accent : 'rgba(255,255,255,0.25)';
-          });
+      star.addEventListener('mouseenter', () => {
+        if (locked) return;
+        Array.from(starRow.children).forEach((s, j) => {
+          s.style.color = j < idx ? T.accent : 'rgba(255,255,255,0.25)';
         });
-        star.addEventListener('click', e => {
-          e.stopPropagation();
-          localStorage.setItem('reacted_' + itemKey, idx);
-          Array.from(starRow.children).forEach((s, j) => {
-            s.style.color = j < idx ? T.accent : 'rgba(255,255,255,0.25)';
-            s.style.cursor = 'default';
-            s.onmouseenter = null;
-          });
-          db.collection('reviews').add({
-            station: item.station, itemKey, rating: idx, comment: '',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          }).catch(() => {});
+      });
+      star.addEventListener('click', e => {
+        e.stopPropagation();
+        if (locked) return;
+        locked = true;
+        ratedValue = idx;
+        localStorage.setItem('reacted_' + itemKey, idx);
+        // Lock visuals immediately — no render()
+        Array.from(starRow.children).forEach((s, j) => {
+          s.style.color = j < idx ? T.accent : 'rgba(255,255,255,0.25)';
+          s.style.cursor = 'default';
         });
-      }
+        // Update badge in-place
+        const prev = state.ratings[itemKey] || { avg: 0, count: 0 };
+        const newCount = prev.count + 1;
+        const newAvg   = (prev.avg * prev.count + idx) / newCount;
+        state.ratings[itemKey] = { avg: newAvg, count: newCount };
+        ratingBadge.textContent = '★ ' + newAvg.toFixed(1) + (newCount > 1 ? ' · ' + newCount : '');
+        ratingBadge.style.display = '';
+        // Also update hero badge if it's for the same item
+        if (_heroBadgeEl && _heroBadgeItemKey === itemKey) {
+          _heroBadgeEl.textContent = ratingBadge.textContent;
+          _heroBadgeEl.style.display = '';
+        }
+        // Write to Firestore in background
+        db.collection('reviews').add({
+          station: item.station, itemKey, rating: idx, comment: '',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => {});
+      });
       starRow.appendChild(star);
     }
     overlay.appendChild(starRow);
-
     card.appendChild(overlay);
-    if (state.ratings[itemKey]) {
-      const { avg, count } = state.ratings[itemKey];
-      card.appendChild(el('div', { style:{
-        position:'absolute', top:'10px', right:'10px', zIndex:'2',
-        background:'rgba(0,0,0,0.55)', borderRadius:'20px', padding:'4px 10px',
-        fontSize:'0.72rem', color:T.accent, fontWeight:'600',
-      }}, '★ ' + avg.toFixed(1) + (count > 1 ? ' · ' + count : '')));
-    }
+    card.appendChild(ratingBadge);
       grid.appendChild(card);
     });
 
@@ -1201,6 +1226,7 @@ async function loadMenu(silent = false) {
     state.loading   = false;
     render();
     loadPhotos();
+    loadAllRatings();
   } catch(err) {
     if (!silent || !state.days.length) {
       state.error   = err.message;
@@ -1366,7 +1392,6 @@ async function loadAllRatings() {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 setInterval(() => { state.status = getStatus(); render(); }, 60000);
 loadMenu();
-loadAllRatings();
 loadFeatured();
 loadWindowsMenu();
 
