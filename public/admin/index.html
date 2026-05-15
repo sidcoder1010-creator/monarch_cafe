@@ -406,8 +406,10 @@ const storage = firebase.storage();
           <option value="1">★ 1</option>
         </select>
         <span id="review-count" class="muted small"></span>
-        <button id="delete-selected-btn" class="btn btn-danger btn-sm" style="display:none;margin-left:auto" onclick="deleteSelected()">Delete Selected (<span id="selected-count">0</span>)</button>
-        <button id="clear-stars-btn" class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="clearStars(this)" title="Signal all devices to clear their saved star selections. Does not delete any reviews.">Clear All Stars</button>
+        <div style="margin-left:auto;display:flex;flex-direction:column;gap:5px;align-items:stretch">
+          <button id="clear-stars-btn" class="btn btn-ghost btn-sm" onclick="clearStars(this)" title="Signal all devices to clear their saved star selections. Does not delete any reviews.">Clear All Stars</button>
+          <button id="delete-selected-btn" class="btn btn-danger btn-sm" style="display:none" onclick="deleteSelected()">Delete Selected (<span id="selected-count">0</span>)</button>
+        </div>
       </div>
       <div id="clear-stars-msg" class="flash-msg" style="margin-bottom:12px"></div>
       <div class="table-wrap">
