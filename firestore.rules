@@ -11,5 +11,9 @@ service cloud.firestore {
                     && request.resource.data.station is string
                     && request.resource.data.itemKey is string;
     }
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }

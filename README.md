@@ -1,4 +1,4 @@
-# Monarch Café — v2.2
+# Monarch Café — v2.3
 
 A lunch menu viewer for Archbishop Mitty High School. Students can browse the weekly menu, see food photos, rate items, and check what's being served at the outdoor windows — all updated live whenever the admin makes changes.
 
@@ -74,6 +74,12 @@ Always deploy both together — deploying only one will leave the frontend and b
 
 ---
 
+## What Changed in v2.3
+
+- **Review clear actually works on all devices** — fixed a Firestore security rules gap where the `config` collection was blocked to unauthenticated users. The customer page listens on `config/reviewsCleared` to know when to wipe localStorage star selections, but that listener was silently failing. Now `config/*` allows public reads so the real-time signal reaches every open browser tab immediately.
+
+---
+
 ## What Changed in v2.2
 
 - **Mass delete reviews** — admin Reviews tab now has a checkbox on every row, a select-all header checkbox, and a "Delete Selected (N)" button that appears when rows are checked. Deletions run in parallel and the table updates instantly.
@@ -100,3 +106,4 @@ Always deploy both together — deploying only one will leave the frontend and b
 | `2.0_adminfixed` | Outdoor window menus, hero banner, star ratings, admin overhaul |
 | `2.1_uifix` | Star rating display on cards, holiday override fix, theme toggle UX |
 | `2.2_reviewupdate` | Live star rating updates, mass delete reviews in admin |
+| `2.3_reviewclearfix` | Fix Firestore rules so review-clear signal reaches all devices |
